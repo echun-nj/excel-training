@@ -1,0 +1,169 @@
+/* assets/style.css */
+
+/* --- General Styles --- */
+body {
+    font-family: sans-serif;
+    margin: 20px;
+    line-height: 1.5; 
+}
+
+h2, h3 {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+    margin-top: 25px;
+    margin-bottom: 15px;
+}
+
+code {
+    background-color: #f0f0f0;
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+hr.section-separator {
+    margin-top: 30px;
+    margin-bottom: 30px;
+    border: 0;
+    border-top: 2px solid #ccc;
+}
+
+/* --- Dynamic Text/Activation Buttons --- */
+.dynamic-text-box {
+    border: 2px solid;
+    padding: 5px 10px;
+    margin: 0 5px;
+    min-width: 80px;
+    display: inline-block;
+    text-align: center;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+    background-color: white;
+    color: black;
+    transition: background-color 0.2s ease;
+    vertical-align: middle; /* Align with text/inputs */
+}
+
+/* Specific border colors */
+.dynamic-text-box-1 { border-color: darkblue; } /* Blue for Sheet B columns / ARRAY */
+.dynamic-text-box-2 { border-color: red; }      /* Red for Sheet A cells / VALUE */
+.dynamic-text-box-3 { border-color: darkblue; } /* Blue for Sheet B columns / ARRAY */
+
+/* Style for when a button is 'active' for selection */
+.dynamic-text-box.active {
+    background-color: #d0d0d0; /* Darker shade when active */
+}
+
+/* --- Formula Display Sections --- */
+.formula-display { /* For INDEX/MATCH section */
+    margin-bottom: 20px;
+    font-size: 1.2em;
+    line-height: 2; /* Extra space for larger buttons */
+    font-family: monospace; /* Keep monospace for main formula */
+}
+
+.formula-display-interactive { /* For MATCH/INDEX sections */
+    font-size: 1.1em; /* Slightly smaller */
+    line-height: 2;
+    margin-bottom: 10px;
+}
+
+/* Align inputs within interactive formula displays */
+.formula-display-interactive .dash-input-container {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0 5px;
+}
+.formula-display-interactive span,
+.formula-display-interactive button,
+.formula-display-interactive code {
+     vertical-align: middle;
+}
+
+
+/* --- Tutorial Sections (MATCH / INDEX) --- */
+.tutorial-section-container {
+    display: flex;
+    flex-wrap: wrap; /* Wrap onto next line on small screens */
+    gap: 25px; /* Space between sections */
+    margin-bottom: 20px;
+}
+
+.tutorial-section {
+    flex: 1; /* Each section takes equal available space */
+    min-width: 400px; /* Minimum width before wrapping */
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.tutorial-section h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.tutorial-section p,
+.tutorial-section ul {
+    margin-bottom: 10px;
+}
+.tutorial-section ul {
+    padding-left: 20px; /* Indent list items */
+}
+.tutorial-section li {
+    margin-bottom: 5px;
+}
+
+/* Ensure tutorial calculate buttons have spacing */
+.tutorial-calculate-button {
+    margin-top: 15px;
+}
+
+
+/* --- Main INDEX/MATCH Table Area --- */
+.index-match-tables-container {
+    display: flex;
+    width: 100%;
+}
+
+.table-column {
+    padding: 0 10px; /* Spacing between SheetA/SheetB columns */
+}
+
+.table-column.sheet-a { width: 25%; }
+.table-column.sheet-b { width: 75%; }
+
+.table-column h4.sheet-a-header { color: red; }
+.table-column h4.sheet-b-header { color: darkblue; }
+
+.table-container {
+    border: 1px solid #ccc;
+    margin-bottom: 15px;
+}
+
+/* --- DataTables --- */
+/* Common DataTable styles */
+.dash-spreadsheet {
+     display: block;
+}
+.dash-header {
+     background-color: #f0f0f0;
+     /* font-weight is handled by style_header in python */
+}
+
+/* --- Result Display Boxes --- */
+.result-box {
+   margin-top: 10px;
+   padding: 10px 15px;
+   border: 1px solid #ccc;
+   background-color: #f8f9fa;
+   min-height: 40px;
+   font-family: monospace;
+   word-wrap: break-word; /* Prevent long results overflowing */
+}
+
+/* Specific result box for index/match section */
+.index-match-result-container {
+     margin-top: 20px; /* Add space above final result */
+}
