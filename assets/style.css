@@ -4,7 +4,12 @@
 body {
     font-family: sans-serif;
     margin: 20px;
-    line-height: 1.5; 
+    line-height: 1.5;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 30px;
 }
 
 h2, h3 {
@@ -42,82 +47,111 @@ hr.section-separator {
     background-color: white;
     color: black;
     transition: background-color 0.2s ease;
-    vertical-align: middle; /* Align with text/inputs */
+    vertical-align: middle;
 }
 
 /* Specific border colors */
-.dynamic-text-box-1 { border-color: darkblue; } /* Blue for Sheet B columns / ARRAY */
-.dynamic-text-box-2 { border-color: red; }      /* Red for Sheet A cells / VALUE */
-.dynamic-text-box-3 { border-color: darkblue; } /* Blue for Sheet B columns / ARRAY */
+.dynamic-text-box-blue { border-color: darkblue; } /* INDEX related */
+.dynamic-text-box-red { border-color: red; }      /* MATCH related */
 
 /* Style for when a button is 'active' for selection */
 .dynamic-text-box.active {
-    background-color: #d0d0d0; /* Darker shade when active */
+    background-color: #d0d0d0;
 }
 
 /* --- Formula Display Sections --- */
 .formula-display { /* For INDEX/MATCH section */
     margin-bottom: 20px;
     font-size: 1.2em;
-    line-height: 2; /* Extra space for larger buttons */
-    font-family: monospace; /* Keep monospace for main formula */
+    line-height: 2;
 }
 
 .formula-display-interactive { /* For MATCH/INDEX sections */
-    font-size: 1.1em; /* Slightly smaller */
+    font-size: 1.1em;
     line-height: 2;
     margin-bottom: 10px;
 }
 
-/* Align inputs within interactive formula displays */
-.formula-display-interactive .dash-input-container {
+/* Style spans used for formula coloring */
+.formula-part-blue {
+    color: darkblue;
+    font-family: monospace;
+    font-weight: bold; /* Make formula parts stand out */
+}
+.formula-part-red {
+    color: red;
+    font-family: monospace;
+    font-weight: bold; /* Make formula parts stand out */
+}
+
+/* Style Inputs to match button outlines */
+.input-box-red {
+    border: 2px solid red !important;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 0 5px;
     display: inline-block;
     vertical-align: middle;
-    margin: 0 5px;
 }
-.formula-display-interactive span,
-.formula-display-interactive button,
-.formula-display-interactive code {
-     vertical-align: middle;
+.input-box-blue {
+    border: 2px solid darkblue !important;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 0 5px;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 
 /* --- Tutorial Sections (MATCH / INDEX) --- */
 .tutorial-section-container {
     display: flex;
-    flex-wrap: wrap; /* Wrap onto next line on small screens */
-    gap: 25px; /* Space between sections */
+    flex-wrap: wrap;
+    gap: 25px;
     margin-bottom: 20px;
 }
 
 .tutorial-section {
-    flex: 1; /* Each section takes equal available space */
-    min-width: 400px; /* Minimum width before wrapping */
+    flex: 1;
+    min-width: 400px;
     padding: 20px;
-    border: 1px solid #ddd;
+    border: 2px solid; /* Border color set by specific class */
     border-radius: 5px;
     background-color: #f9f9f9;
 }
 
-.tutorial-section h3 {
-    margin-top: 0;
-    color: #333;
-}
+/* Specific borders and title colors */
+.tutorial-section-match { border-color: red; }
+.tutorial-section-match h3 { color: red; }
+
+.tutorial-section-index { border-color: darkblue; }
+.tutorial-section-index h3 { color: darkblue; }
+
 
 .tutorial-section p,
 .tutorial-section ul {
     margin-bottom: 10px;
 }
 .tutorial-section ul {
-    padding-left: 20px; /* Indent list items */
+    padding-left: 20px;
 }
 .tutorial-section li {
     margin-bottom: 5px;
 }
 
-/* Ensure tutorial calculate buttons have spacing */
 .tutorial-calculate-button {
     margin-top: 15px;
+}
+
+/* Instruction text styling */
+.instruction-text {
+    font-style: italic;
+    color: #555;
+    margin-bottom: 15px;
+    font-size: 0.95em;
+    padding: 5px;
+    background-color: #efefef; /* Light grey background for instructions */
+    border-left: 3px solid #aaa; /* Add a left border */
 }
 
 
@@ -128,14 +162,18 @@ hr.section-separator {
 }
 
 .table-column {
-    padding: 0 10px; /* Spacing between SheetA/SheetB columns */
+    padding: 0 10px;
 }
 
 .table-column.sheet-a { width: 25%; }
 .table-column.sheet-b { width: 75%; }
 
-.table-column h4.sheet-a-header { color: red; }
-.table-column h4.sheet-b-header { color: darkblue; }
+/* Sheet A/B Headers are now black */
+.table-column h4.sheet-a-header,
+.table-column h4.sheet-b-header {
+    color: black;
+    font-weight: bold;
+}
 
 .table-container {
     border: 1px solid #ccc;
@@ -143,14 +181,9 @@ hr.section-separator {
 }
 
 /* --- DataTables --- */
-/* Common DataTable styles */
-.dash-spreadsheet {
-     display: block;
-}
-.dash-header {
-     background-color: #f0f0f0;
-     /* font-weight is handled by style_header in python */
-}
+.dash-spreadsheet { display: block; }
+.dash-header { background-color: #f0f0f0; }
+
 
 /* --- Result Display Boxes --- */
 .result-box {
@@ -160,10 +193,7 @@ hr.section-separator {
    background-color: #f8f9fa;
    min-height: 40px;
    font-family: monospace;
-   word-wrap: break-word; /* Prevent long results overflowing */
+   word-wrap: break-word;
 }
 
-/* Specific result box for index/match section */
-.index-match-result-container {
-     margin-top: 20px; /* Add space above final result */
-}
+.index-match-result-container { margin-top: 20px; }
