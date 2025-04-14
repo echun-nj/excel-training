@@ -10,6 +10,8 @@ MATCH_CSV = "match.csv"
 BIOGUIDE_COL = 'bioguide' # Column name for lookup key in sheet B
 SEAT_COL = "seat"       # Column name in match.csv
 NAME_COL = "name"       # Column name in match.csv
+HIGHLIGHT_COLOR_RED = '#ffcccc'  # Light Red
+HIGHLIGHT_COLOR_BLUE = '#cce5ff' # Light Blue
 
 # --- Helper Function ---
 def get_excel_col_name(n: int) -> str:
@@ -127,7 +129,6 @@ except Exception as e:
 
 
 # --- Dash App Initialization ---
-# Add assets_folder='assets' for clarity, though it's the default
 app = Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
 
 # --- Reusable Component Styles --- (Used directly in layout)
@@ -159,7 +160,7 @@ app.layout = html.Div([
     # =======================================
     html.Div(className="tutorial-section-container", children=[
         # --- MATCH Section ---
-        html.Div(className="tutorial-section", children=[
+        html.Div(className="tutorial-section tutorial-section-match", children=[
             html.H3("Understanding MATCH()"),
             html.P([html.Code("MATCH(VALUE, ARRAY, TYPE)"), " finds the ", html.Strong("position"), " of a ", html.Strong("value"), "."]),
             html.P("Inputs:"),
@@ -170,19 +171,23 @@ app.layout = html.Div([
             ]),
             html.P("Output:"),
             html.Ul([html.Li(["The position (row number). e.g., ", html.Code("1")])]),
-            # Interactive Formula
+            html.P(
+                "Type the value you're searching for into the 'VALUE' box below. Then, click the 'ARRAY' button and select the column you want to search.",
+                className="instruction-text"
+            ),
+        # Interactive Formula
             html.Div(className="formula-display-interactive", children=[
-                html.Code(html.Span("MATCH(")),
-                dcc.Input(id='match-input-value', type='text', placeholder="VALUE", size='15'),
-                html.Code(html.Span(", ")),
-                html.Button("ARRAY", id='activate-match-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-1'),
-                html.Code(html.Span(", 0)"))
+                html.Span("MATCH(", className="formula-part-red"),
+                dcc.Input(id='match-input-value', type='text', placeholder="VALUE", size='15', className="input-box-red"),
+                html.Span(", ", className="formula-part-red"),
+                html.Button("ARRAY", id='activate-match-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
+                html.Span(", 0)", className="formula-part-red")
             ]),
             # Table
             dash_table.DataTable(
                 id='match-table', columns=columns_match, data=data_match,
                 column_selectable='single', selected_columns=[], cell_selectable=False, row_selectable=False, page_action='none', fixed_rows={'headers': True},
-                style_table=STYLE_DATATABLE_TUTORIAL, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
+                style_table=STYLE_DATATABLE_TUTORIAL, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON
             ),
             # Calculate Button & Result
             html.Button("Calculate MATCH", id='calculate-match-button', n_clicks=0, style=STYLE_CALC_BUTTON),
@@ -190,7 +195,7 @@ app.layout = html.Div([
         ]), # End MATCH Section Div
 
         # --- INDEX Section ---
-        html.Div(className="tutorial-section", children=[
+        html.Div(className="tutorial-section tutorial-section-index", children=[
             html.H3("Understanding INDEX()"),
             html.P([html.Code("INDEX(ARRAY, POSITION)"), " finds the ", html.Strong("value "), "at a ", html.Strong("position"), "."]),
             html.P("Inputs:"),
@@ -200,13 +205,20 @@ app.layout = html.Div([
             ]),
             html.P("Output:"),
             html.Ul([html.Li(["The value at that position. e.g., ", html.Code(f"{df_match.loc[0, SEAT_COL] if not df_match.empty else 'Some Seat'}")])]),
-             # Interactive Formula
+            html.P(
+                "Click the 'ARRAY' button and select the column containing the value you want to return. Then, type the row number into the 'POSITION' box.",
+                className="instruction-text"
+            ),
+            # Interactive Formula - APPLY BLUE STYLES
             html.Div(className="formula-display-interactive", children=[
-                html.Code(html.Span("INDEX(")),
-                html.Button("ARRAY", id='activate-index-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-1'),
-                html.Code(html.Span(", ")),
-                dcc.Input(id='index-input-position', type='number', placeholder="POSITION", min=1, step=1, size='10'),
-                html.Code(html.Span(")"))
+                # Use className for color
+                html.Span("INDEX(", className="formula-part-blue"),
+                # Use className for blue border
+                html.Button("ARRAY", id='activate-index-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-blue'),
+                html.Span(", ", className="formula-part-blue"),
+                # Use className for blue border
+                dcc.Input(id='index-input-position', type='number', placeholder="POSITION", min=1, step=1, size='10', className="input-box-blue"),
+                html.Span(")", className="formula-part-blue")
             ]),
              # Table
             dash_table.DataTable(
@@ -227,45 +239,65 @@ app.layout = html.Div([
     # === INDEX/MATCH Tutorial ===
     # =======================================
     html.H2("Using INDEX() and MATCH() together"),
-    html.P(["Combine INDEX and MATCH to look up a ", html.Strong("value"), " in one column (Sheet A) and return corresponding information from the same row in a ", html.Strong("different column"), " (Sheet B)."]),
+    html.P(["Combine ", html.Span("INDEX", style={'color':'blue'}), " and ", html.Span("MATCH", style={'color':'red'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'blue'}), "."]),
+    html.P("Instructions:", style={'fontWeight': 'bold'}),
+    html.Div(className="instruction-text", children=[
+        html.P([
+            "1. ", 
+            html.Strong(html.Span("MATCH:", style={'color': 'red'})), # Label is red and bold
+            " Click the ", html.Span("'Lookup Value'", style={'color':'red'}), " button, then select a cell in ", html.Strong("Sheet A"), " containing the value you're searching for. ",
+            "Click the ", html.Span("'Lookup Column'", style={'color':'red'}), " button, then select the '", html.Code(BIOGUIDE_COL), "' column header in ", html.Strong("Sheet B"), "."
+        ]),
+        html.P([
+            "2. ",
+            html.Strong(html.Span("INDEX:", style={'color': 'darkblue'})), # Label is blue and bold
+            " Click the ", html.Span("'Result Column'", style={'color':'darkblue'}), " button, then select the column header in ", html.Strong("Sheet B"), " containing the info you want to retrieve."
+        ])
+    ]),
     # --- Formula Display ---
     html.Div(className='formula-display', children=[
-        html.Span("INDEX(sheetB!"),
-        html.Button("Result Column", id='im-activate-dyn1', n_clicks=0, className='dynamic-text-box dynamic-text-box-1'), # Renamed ID
-        html.Span(", MATCH("),
-        html.Button("Lookup Value", id='im-activate-dyn2', n_clicks=0, className='dynamic-text-box dynamic-text-box-2'), # Renamed ID
-        html.Span(", sheetB!"),
-        html.Button("Lookup Column", id='im-activate-dyn3', n_clicks=0, className='dynamic-text-box dynamic-text-box-3'), # Renamed ID
-        html.Span(", 0))")
+        html.Span("INDEX(", className="formula-part-blue"),
+        html.Span("sheetB!", className="formula-part-blue"),
+        # Button 1: Blue
+        html.Button("Result Column", id='im-activate-dyn1', n_clicks=0, className='dynamic-text-box dynamic-text-box-blue'),
+        html.Span(", ", className="formula-part-blue"),
+        html.Span("MATCH(", className="formula-part-red"),
+        # Button 2: Red
+        html.Button("Lookup Value", id='im-activate-dyn2', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
+        html.Span(", ", className="formula-part-red"),
+        html.Span("sheetB!", className="formula-part-red"),
+         # Button 3: Red
+        html.Button("Lookup Column", id='im-activate-dyn3', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
+        html.Span(", 0)", className="formula-part-red"),
+        html.Span(")", className="formula-part-blue")
     ]),
 
     # --- Tables Side-by-Side ---
     html.Div(className="index-match-tables-container", children=[
         # --- Sheet A Table ---
         html.Div(className='table-column sheet-a', children=[
-            html.H4("Sheet A", className='sheet-a-header'),
+            html.H4("Sheet A", className='sheet-a-header'), # Use class for black text
             html.Div(className='table-container', children=[
                 dash_table.DataTable(
-                    id='im-table-a', columns=columns_a, data=data_a, cell_selectable=True, fixed_rows={'headers': True}, # Renamed ID
+                    id='im-table-a', columns=columns_a, data=data_a, cell_selectable=True, fixed_rows={'headers': True},
                     row_selectable=False, column_selectable=False, page_action='none',
-                    style_table=STYLE_DATATABLE_INDEXMATCH_A,
+                    style_table=STYLE_DATATABLE_INDEXMATCH_A, # Red background
                     style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
-                )
-            ])
-        ]),
+                    # Conditional style added via callback
+                    style_data_conditional=[]
+                )])]),
         # --- Sheet B Table ---
         html.Div(className='table-column sheet-b', children=[
-             html.H4("Sheet B", className='sheet-b-header'),
+             html.H4("Sheet B", className='sheet-b-header'), # Use class for black text
              html.Div(className='table-container', children=[
                  dash_table.DataTable(
-                    id='im-table-b', columns=columns_b, data=data_b, cell_selectable=False, fixed_rows={'headers': True}, # Renamed ID
+                    id='im-table-b', columns=columns_b, data=data_b, cell_selectable=False, fixed_rows={'headers': True},
                     row_selectable=False, column_selectable='single', selected_columns=[], page_action='none',
-                    style_table=STYLE_DATATABLE_INDEXMATCH_B,
+                    style_table=STYLE_DATATABLE_INDEXMATCH_B, # Blue background
                     style_cell={**STYLE_CELL_COMMON, 'minWidth': '100px'}, style_header=STYLE_HEADER_COMMON,
-                 )
-             ])
-        ]),
-    ]),
+                     # Conditional style added via callback
+                    style_data_conditional=[]
+                 )])])]),
 
     # --- Calculate Button ---
     html.Div(children=[ 
@@ -275,7 +307,17 @@ app.layout = html.Div([
     # --- Result Display ---
     html.Div(className="index-match-result-container", children=[
         html.Div(id='im-result-display', children="Result: ", className='result-box')
-    ])
+    ]),
+
+    html.P([
+        " Once you've built an INDEX/MATCH formula in Excel for one row, like this, you can drag the formula down and dynamically perform the same lookup for all other rows! Just make sure your Sheet B column references (the ",
+        html.Code("ARRAY"),
+        " parts) use dollar signs (",
+        html.Code("$"),
+        ") like ",
+        html.Code("$C:$C"),
+        " to keep them fixed."
+    ]) 
 ]) # End main layout Div
 
 
@@ -304,7 +346,7 @@ def activate_match_array_selection(n_clicks, current_store_data):
 )
 def style_match_array_button(match_store_data):
     """Updates style of MATCH array button based on active state."""
-    base_class = "dynamic-text-box dynamic-text-box-1"
+    base_class = "dynamic-text-box dynamic-text-box-red"
     active = match_store_data and match_store_data.get('active_button') == 'activate-match-array'
     return f"{base_class}{' active' if active else ''}"
 
@@ -376,6 +418,26 @@ def calculate_match_result(n_clicks, lookup_value, match_store_data):
 
     return f"Result: {result_val}"
 
+@callback(
+    Output('match-table', 'style_data_conditional'),
+    Input('match-section-store', 'data') # Trigger based on the store's data
+)
+
+def style_selected_match_column(match_store_data):
+    """Applies highlight style based on the column index stored for MATCH."""
+    styles = []
+    if not match_store_data: return styles
+    col_index = match_store_data.get('array_col_index')
+    if col_index is not None and original_match_cols_list and 0 <= col_index < len(original_match_cols_list):
+        try:
+            selected_id = original_match_cols_list[col_index]
+            styles.append({
+                'if': {'column_id': selected_id},
+                'backgroundColor': HIGHLIGHT_COLOR_RED, # CHANGE TO RED HIGHLIGHT
+                'color': 'black'
+            })
+        except Exception as e: print(f"Error styling MATCH col: {e}")
+    return styles
 
 # ==========================
 # === INDEX CALLBACKS ======
@@ -400,7 +462,7 @@ def activate_index_array_selection(n_clicks, current_store_data):
 )
 def style_index_array_button(index_store_data):
     """Updates style of INDEX array button based on active state."""
-    base_class = "dynamic-text-box dynamic-text-box-1"
+    base_class = "dynamic-text-box dynamic-text-box-blue"
     active = index_store_data and index_store_data.get('active_button') == 'activate-index-array'
     return f"{base_class}{' active' if active else ''}"
 
@@ -487,6 +549,27 @@ def calculate_index_result(n_clicks, position_input, index_store_data):
 
     return f"Result: {result_val}"
 
+@callback(
+    Output('index-table', 'style_data_conditional'),
+    Input('index-section-store', 'data') # Trigger based on the INDEX store's data
+)
+
+def style_selected_index_column(index_store_data):
+    """Applies highlight style based on the column index stored for INDEX."""
+    styles = []
+    if not index_store_data: return styles
+    col_index = index_store_data.get('array_col_index')
+    if col_index is not None and original_match_cols_list and 0 <= col_index < len(original_match_cols_list):
+        try:
+            selected_id = original_match_cols_list[col_index]
+            styles.append({
+                'if': {'column_id': selected_id},
+                'backgroundColor': HIGHLIGHT_COLOR_BLUE, # CHANGE TO BLUE HIGHLIGHT
+                'color': 'black'
+            })
+        except Exception as e: print(f"Error styling INDEX col: {e}")
+    return styles
+
 
 # ==================================
 # === INDEX/MATCH CALLBACKS ===
@@ -510,23 +593,22 @@ def update_indexmatch_selection_mode(n1, n2, n3):
     return dash.no_update
 
 @callback(
-    Output('im-activate-dyn1', 'className'),
-    Output('im-activate-dyn2', 'className'),
-    Output('im-activate-dyn3', 'className'),
-    Input('im-selection-mode-store', 'data')
-)
-def update_indexmatch_button_styles(selection_mode_data):
-    """Updates styles for INDEX/MATCH activation buttons."""
-    mode = selection_mode_data.get('active') if selection_mode_data else None
-    base_classes = {
-        1: "dynamic-text-box dynamic-text-box-1", # Blue
-        2: "dynamic-text-box dynamic-text-box-2", # Red
-        3: "dynamic-text-box dynamic-text-box-3"  # Blue (same as 1)
+    Output('im-activate-dyn1', 'className'), Output('im-activate-dyn2', 'className'), Output('im-activate-dyn3', 'className'),
+    Input('im-selection-mode-store', 'data'))
+
+def update_indexmatch_button_styles(store):
+    """Updates styles for INDEX/MATCH activation buttons using red/blue scheme."""
+    mode = store.get('active') if store else None
+    # Assign classes based on function: INDEX=blue, MATCH=red
+    cls = {
+        1: "dynamic-text-box dynamic-text-box-blue", # Dyn1 (INDEX Array) = Blue
+        2: "dynamic-text-box dynamic-text-box-red",  # Dyn2 (MATCH Value) = Red
+        3: "dynamic-text-box dynamic-text-box-red"   # Dyn3 (MATCH Array) = Red
     }
-    # Return classes, adding 'active' if mode matches
-    return (f"{base_classes[1]}{' active' if mode == 1 else ''}",
-            f"{base_classes[2]}{' active' if mode == 2 else ''}",
-            f"{base_classes[3]}{' active' if mode == 3 else ''}")
+    # Apply 'active' class if mode matches
+    return (f"{cls[1]}{' active' if mode == 1 else ''}",
+            f"{cls[2]}{' active' if mode == 2 else ''}",
+            f"{cls[3]}{' active' if mode == 3 else ''}")
 
 
 @callback(
@@ -675,6 +757,41 @@ def calculate_im_result(n_clicks, index_data, match1_data, match2_data):
             result_val = f"Unexpected Error: {e}"
 
     return f"Result: {result_val}"
+
+@callback(
+    Output('im-table-b', 'style_data_conditional'),
+    Input('im-index-param-store', 'data'),  # INDEX col index (for BLUE)
+    Input('im-match-param-2-store', 'data') # MATCH col index (for RED)
+)
+def style_selected_im_b_columns(index_param_data, match_param_2_data):
+    """Applies BLUE highlight to INDEX col, RED highlight to MATCH col in Sheet B."""
+    styles = []
+    index_col_idx = index_param_data.get('col_index') if index_param_data else None
+    match_col_idx = match_param_2_data.get('col_index') if match_param_2_data else None
+
+    print(f"Styling IM B: IndexCol={index_col_idx}, MatchCol={match_col_idx}")
+
+    # Helper to add style if index is valid
+    def add_style(col_idx, color):
+        if col_idx is not None and original_b_cols_list and 0 <= col_idx < len(original_b_cols_list):
+            try:
+                col_id = original_b_cols_list[col_idx]
+                print(f"  Applying {'RED' if color == HIGHLIGHT_COLOR_RED else 'BLUE'} to '{col_id}'")
+                styles.append({
+                    'if': {'column_id': col_id},
+                    'backgroundColor': color,
+                    'color': 'black'
+                })
+            except Exception as e: print(f"Error adding style: {e}")
+
+    # Apply BLUE for INDEX column FIRST
+    add_style(index_col_idx, HIGHLIGHT_COLOR_BLUE)
+
+    # Apply RED for MATCH column SECOND (will override blue if same column)
+    add_style(match_col_idx, HIGHLIGHT_COLOR_RED)
+
+    print(f"-> Final B Styles: {styles}")
+    return styles
 
 
 # --- Run the App ---
