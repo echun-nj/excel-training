@@ -793,6 +793,7 @@ def style_selected_im_b_columns(index_param_data, match_param_2_data):
     print(f"-> Final B Styles: {styles}")
     return styles
 
+server = app.server
 
 # --- Run the App ---
 if __name__ == '__main__':
