@@ -246,12 +246,12 @@ app.layout = html.Div([
             "1. ", 
             html.Strong(html.Span("MATCH:", style={'color': 'red'})), # Label is red and bold
             " Click the ", html.Span("'Lookup Value'", style={'color':'red'}), " button, then select a cell in ", html.Strong("Sheet A"), " containing the value you're searching for. ",
-            "Click the ", html.Span("'Lookup Column'", style={'color':'red'}), " button, then select the '", html.Code(BIOGUIDE_COL), "' column header in ", html.Strong("Sheet B"), "."
+            "Click the ", html.Span("'Lookup Column'", style={'color':'red'}), " button, then select the column  in ", html.Strong("Sheet B"), " you want to search."
         ]),
         html.P([
             "2. ",
             html.Strong(html.Span("INDEX:", style={'color': 'darkblue'})), # Label is blue and bold
-            " Click the ", html.Span("'Result Column'", style={'color':'darkblue'}), " button, then select the column header in ", html.Strong("Sheet B"), " containing the info you want to retrieve."
+            " Click the ", html.Span("'Result Column'", style={'color':'darkblue'}), " button, then select the column in ", html.Strong("Sheet B"), " containing the info you want to retrieve."
         ])
     ]),
     # --- Formula Display ---
@@ -739,7 +739,7 @@ def calculate_im_result(n_clicks, index_data, match1_data, match2_data):
                 sel_col = original_b_cols_list[m_param2_idx] if original_b_cols_list and 0 <= m_param2_idx < len(original_b_cols_list) else f'Col {m_param2_idx}'
                 bio_ref = match2_data.get('excel_ref', f"${get_excel_col_name(BIOGUIDE_COL_INDEX_B)}:${get_excel_col_name(BIOGUIDE_COL_INDEX_B)}")
                 sel_ref = match2_data.get('excel_ref', f"${get_excel_col_name(m_param2_idx)}:${get_excel_col_name(m_param2_idx)}")
-                result_val = f"Error: Lookup Column must be '{bio_col}' ({bio_ref}). You selected '{sel_col}' ({sel_ref})."
+                result_val = f"Error: Your lookup column does not contain the lookup value. Try choosing another column."
             else:
                 matched_row_list = sheetB_dict.get(m_param1_val)
                 if matched_row_list is None:
