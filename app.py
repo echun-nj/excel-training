@@ -153,7 +153,7 @@ app.layout = html.Div([
     dcc.Store(id='im-match-param-1-store', data=None),
     dcc.Store(id='im-match-param-2-store', data=None),
 
-    html.H1("Excel Training"), # Main Title
+    html.H1("NJPC Excel Training"), # Main Title
 
     # =======================================
     # === MATCH and INDEX Tutorials ===
@@ -310,13 +310,7 @@ app.layout = html.Div([
     ]),
 
     html.P([
-        " Once you've built an INDEX/MATCH formula in Excel for one row, like this, you can drag the formula down and dynamically perform the same lookup for all other rows! Just make sure your Sheet B column references (the ",
-        html.Code("ARRAY"),
-        " parts) use dollar signs (",
-        html.Code("$"),
-        ") like ",
-        html.Code("$C:$C"),
-        " to keep them fixed."
+        " Once you've built an INDEX/MATCH formula in Excel for one row, like this, you can drag the formula down and dynamically perform the same lookup for all other rows!"
     ]) 
 ]) # End main layout Div
 
@@ -686,7 +680,7 @@ def handle_im_sheet_b_column_selection(selected_columns, selection_mode_data):
 
         # Prepare common data
         col_letter = get_excel_col_name(col_index)
-        excel_col_ref = f"${col_letter}:${col_letter}"
+        excel_col_ref = f"{col_letter}:{col_letter}"
         param_data = {'col_index': col_index, 'excel_ref': excel_col_ref}
         print(f"IM Sheet B selected: Col={selected_col_id}, Idx={col_index}, Ref={excel_col_ref}, Mode={mode}")
 
@@ -737,8 +731,8 @@ def calculate_im_result(n_clicks, index_data, match1_data, match2_data):
             elif m_param2_idx != BIOGUIDE_COL_INDEX_B:
                 bio_col = original_b_cols_list[BIOGUIDE_COL_INDEX_B] if original_b_cols_list and 0 <= BIOGUIDE_COL_INDEX_B < len(original_b_cols_list) else BIOGUIDE_COL
                 sel_col = original_b_cols_list[m_param2_idx] if original_b_cols_list and 0 <= m_param2_idx < len(original_b_cols_list) else f'Col {m_param2_idx}'
-                bio_ref = match2_data.get('excel_ref', f"${get_excel_col_name(BIOGUIDE_COL_INDEX_B)}:${get_excel_col_name(BIOGUIDE_COL_INDEX_B)}")
-                sel_ref = match2_data.get('excel_ref', f"${get_excel_col_name(m_param2_idx)}:${get_excel_col_name(m_param2_idx)}")
+                bio_ref = match2_data.get('excel_ref', f"{get_excel_col_name(BIOGUIDE_COL_INDEX_B)}:{get_excel_col_name(BIOGUIDE_COL_INDEX_B)}")
+                sel_ref = match2_data.get('excel_ref', f"{get_excel_col_name(m_param2_idx)}:{get_excel_col_name(m_param2_idx)}")
                 result_val = f"Error: Your lookup column does not contain the lookup value. Try choosing another column."
             else:
                 matched_row_list = sheetB_dict.get(m_param1_val)
