@@ -181,9 +181,26 @@ hr.section-separator {
 }
 
 /* --- DataTables --- */
-.dash-spreadsheet { display: block; }
-.dash-header { background-color: #f0f0f0; }
+.data-table {
+    height: 200px;
+    overflow-y: auto;
+    width: 100%;
+    background-color: #e0f2f7; /* Example light blue */
+}
 
+.data-table .dash-spreadsheet { display: block; }
+.data-table .dash-header { background-color: #f0f0f0; }
+.data-table .dash-cell {
+    text-align: left;
+    padding: 5px;
+}
+.data-table .dash-header--title { /* Style the table header */
+    font-weight: bold;
+}
+
+/* --- Specific styles for INDEX/MATCH tables if needed--- */
+#im-table-a { background-color: #ffebeb; } /* Light red */
+#im-table-b { background-color: #e0f2f7; } /* Light blue */
 
 /* --- Result Display Boxes --- */
 .result-box {
@@ -197,3 +214,44 @@ hr.section-separator {
 }
 
 .index-match-result-container { margin-top: 20px; }
+
+/* --- Tab Navigation Styling --- */
+.tab--selector {
+    margin: 20px auto;
+    max-width: 800px;
+    justify-content: flex-start; 
+}
+
+.dash-tabs {
+    border-bottom: 2px solid #ccc;
+    font-size: 1.1em;
+}
+
+.tab--selector .dash-tab {
+    padding: 10px 25px;
+    margin-right: 10px;
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    font-weight: bold;
+    color: #333;
+}
+
+.tab--selector .dash-tab--selected {
+    background-color: white;
+    border-bottom: 2px solid white;
+    color: #000;
+}
+
+/* --- Space below tabs before content --- */
+#tab-content {
+    margin-top: 0px;
+    padding: 20px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 0 5px 5px 5px;
+    max-width: 2000px;
+    margin-left: auto;
+    margin-right: auto;
+}

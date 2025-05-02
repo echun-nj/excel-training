@@ -98,7 +98,7 @@ try:
      original_a_cols_list, original_b_cols_list, original_match_cols_list) = load_data()
     df_a, df_b, df_match = dfs.get('a'), dfs.get('b'), dfs.get('match')
 
-    # Prepare data/columns for DataTables (can be done once)
+    # Prepare data/columns for DataTables
     if not df_a.empty:
         data_a = df_a.to_dict('records')
         columns_a = [{"name": i, "id": i} for i in original_a_cols_list]
@@ -132,7 +132,6 @@ except Exception as e:
 app = Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
 
 # --- Reusable Component Styles --- (Used directly in layout)
-# DataTable styles (keeping background colors here for reliability)
 STYLE_DATATABLE = {'height': '200px', 'overflowY': 'auto', 'width': '100%'}
 STYLE_DATATABLE_INDEXMATCH_A = {'height': '400px', 'overflowY': 'auto', 'width': '100%', 'backgroundColor': '#ffebeb'}
 STYLE_DATATABLE_INDEXMATCH_B = {'height': '400px', 'overflowY': 'auto', 'width': '100%', 'backgroundColor': '#e0f2f7'}
@@ -145,177 +144,199 @@ STYLE_RESULT_BOX = {'marginTop': '10px'}
 
 # --- App Layout ---
 app.layout = html.Div([
-    # === Stores for holding state ===
-    dcc.Store(id='match-section-store', data={'active_button': None, 'array_col_index': None, 'array_excel_ref': None}),
-    dcc.Store(id='index-section-store', data={'active_button': None, 'array_col_index': None, 'array_excel_ref': None}),
-    dcc.Store(id='im-selection-mode-store', data={'active': None}), # Renamed for clarity (im = index/match)
-    dcc.Store(id='im-index-param-store', data=None),
-    dcc.Store(id='im-match-param-1-store', data=None),
-    dcc.Store(id='im-match-param-2-store', data=None),
-
     html.H1("NJPC Excel Training"), # Main Title
-
-    # =======================================
-    # === MATCH and INDEX Tutorials ===
-    # =======================================
-    html.Div(className="tutorial-section-container", children=[
-        # --- MATCH Section ---
-        html.Div(className="tutorial-section tutorial-section-match", children=[
-            html.H3("Understanding MATCH()"),
-            html.P([html.Code("MATCH(VALUE, ARRAY, TYPE)"), " finds the ", html.Strong("position"), " of a ", html.Strong("value"), "."]),
-            html.P("Inputs:"),
-            html.Ul([
-                html.Li([html.Strong("VALUE:"), " What you’re searching for. e.g., ", html.Code(f"{df_match.loc[0, NAME_COL] if not df_match.empty else 'Some Name'}")]),
-                html.Li([html.Strong("ARRAY:"), " Which column to search. e.g., ", html.Code("B:B")]),
-                html.Li([html.Strong("TYPE:"), " Use ", html.Code("0"), " for exact match."])
-            ]),
-            html.P("Output:"),
-            html.Ul([html.Li(["The position (row number). e.g., ", html.Code("1")])]),
-            html.P(
-                "Type the value you're searching for into the 'VALUE' box below. Then, click the 'ARRAY' button and select the column you want to search.",
-                className="instruction-text"
-            ),
-        # Interactive Formula
-            html.Div(className="formula-display-interactive", children=[
-                html.Span("MATCH(", className="formula-part-red"),
-                dcc.Input(id='match-input-value', type='text', placeholder="VALUE", size='15', className="input-box-red"),
-                html.Span(", ", className="formula-part-red"),
-                html.Button("ARRAY", id='activate-match-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
-                html.Span(", 0)", className="formula-part-red")
-            ]),
-            # Table
-            dash_table.DataTable(
-                id='match-table', columns=columns_match, data=data_match,
-                column_selectable='single', selected_columns=[], cell_selectable=False, row_selectable=False, page_action='none', fixed_rows={'headers': True},
-                style_table=STYLE_DATATABLE_TUTORIAL, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON
-            ),
-            # Calculate Button & Result
-            html.Button("Calculate MATCH", id='calculate-match-button', n_clicks=0, style=STYLE_CALC_BUTTON),
-            html.Div(id='match-result-display', children="Result: ", className='result-box', style=STYLE_RESULT_BOX)
-        ]), # End MATCH Section Div
-
-        # --- INDEX Section ---
-        html.Div(className="tutorial-section tutorial-section-index", children=[
-            html.H3("Understanding INDEX()"),
-            html.P([html.Code("INDEX(ARRAY, POSITION)"), " finds the ", html.Strong("value "), "at a ", html.Strong("position"), "."]),
-            html.P("Inputs:"),
-            html.Ul([
-                html.Li([html.Strong("ARRAY:"), " Which column has the value you want. e.g., ", html.Code("A:A")]),
-                html.Li([html.Strong("POSITION:"), " The row number containing the value. e.g., ", html.Code("1")])
-            ]),
-            html.P("Output:"),
-            html.Ul([html.Li(["The value at that position. e.g., ", html.Code(f"{df_match.loc[0, SEAT_COL] if not df_match.empty else 'Some Seat'}")])]),
-            html.P(
-                "Click the 'ARRAY' button and select the column containing the value you want to return. Then, type the row number into the 'POSITION' box.",
-                className="instruction-text"
-            ),
-            # Interactive Formula - APPLY BLUE STYLES
-            html.Div(className="formula-display-interactive", children=[
-                # Use className for color
-                html.Span("INDEX(", className="formula-part-blue"),
-                # Use className for blue border
-                html.Button("ARRAY", id='activate-index-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-blue'),
-                html.Span(", ", className="formula-part-blue"),
-                # Use className for blue border
-                dcc.Input(id='index-input-position', type='number', placeholder="POSITION", min=1, step=1, size='10', className="input-box-blue"),
-                html.Span(")", className="formula-part-blue")
-            ]),
-             # Table
-            dash_table.DataTable(
-                id='index-table', columns=columns_match, data=data_match,
-                column_selectable='single', selected_columns=[], cell_selectable=False, row_selectable=False, page_action='none', fixed_rows={'headers': True},
-                style_table=STYLE_DATATABLE_TUTORIAL, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
-            ),
-             # Calculate Button & Result
-            html.Button("Calculate INDEX", id='calculate-index-button', n_clicks=0, style=STYLE_CALC_BUTTON),
-            html.Div(id='index-result-display', children="Result: ", className='result-box', style=STYLE_RESULT_BOX)
-        ]), # End INDEX Section Div
-    ]), # End Top Row Flex Container
-
-    # --- Separator ---
-    html.Hr(className="section-separator"),
-
-    # =======================================
-    # === INDEX/MATCH Tutorial ===
-    # =======================================
-    html.H2("Using INDEX() and MATCH() together"),
-    html.P(["Combine ", html.Span("INDEX", style={'color':'blue'}), " and ", html.Span("MATCH", style={'color':'red'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'blue'}), "."]),
-    html.P("Instructions:", style={'fontWeight': 'bold'}),
-    html.Div(className="instruction-text", children=[
-        html.P([
-            "1. ", 
-            html.Strong(html.Span("MATCH:", style={'color': 'red'})), # Label is red and bold
-            " Click the ", html.Span("'Lookup Value'", style={'color':'red'}), " button, then select a cell in ", html.Strong("Sheet A"), " containing the value you're searching for. ",
-            "Click the ", html.Span("'Lookup Column'", style={'color':'red'}), " button, then select the column  in ", html.Strong("Sheet B"), " you want to search."
-        ]),
-        html.P([
-            "2. ",
-            html.Strong(html.Span("INDEX:", style={'color': 'darkblue'})), # Label is blue and bold
-            " Click the ", html.Span("'Result Column'", style={'color':'darkblue'}), " button, then select the column in ", html.Strong("Sheet B"), " containing the info you want to retrieve."
-        ])
+    dcc.Tabs(id="tab-selector", value='tab-text-strings', className="tab--selector", children=[
+        dcc.Tab(label='Text String Basics', value='tab-text-strings'),
+        dcc.Tab(label='Index Match', value='tab-index-match'),
     ]),
-    # --- Formula Display ---
-    html.Div(className='formula-display', children=[
-        html.Span("INDEX(", className="formula-part-blue"),
-        html.Span("sheetB!", className="formula-part-blue"),
-        # Button 1: Blue
-        html.Button("Result Column", id='im-activate-dyn1', n_clicks=0, className='dynamic-text-box dynamic-text-box-blue'),
-        html.Span(", ", className="formula-part-blue"),
-        html.Span("MATCH(", className="formula-part-red"),
-        # Button 2: Red
-        html.Button("Lookup Value", id='im-activate-dyn2', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
-        html.Span(", ", className="formula-part-red"),
-        html.Span("sheetB!", className="formula-part-red"),
-         # Button 3: Red
-        html.Button("Lookup Column", id='im-activate-dyn3', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
-        html.Span(", 0)", className="formula-part-red"),
-        html.Span(")", className="formula-part-blue")
-    ]),
-
-    # --- Tables Side-by-Side ---
-    html.Div(className="index-match-tables-container", children=[
-        # --- Sheet A Table ---
-        html.Div(className='table-column sheet-a', children=[
-            html.H4("Sheet A", className='sheet-a-header'), # Use class for black text
-            html.Div(className='table-container', children=[
-                dash_table.DataTable(
-                    id='im-table-a', columns=columns_a, data=data_a, cell_selectable=True, fixed_rows={'headers': True},
-                    row_selectable=False, column_selectable=False, page_action='none',
-                    style_table=STYLE_DATATABLE_INDEXMATCH_A, # Red background
-                    style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
-                    # Conditional style added via callback
-                    style_data_conditional=[]
-                )])]),
-        # --- Sheet B Table ---
-        html.Div(className='table-column sheet-b', children=[
-             html.H4("Sheet B", className='sheet-b-header'), # Use class for black text
-             html.Div(className='table-container', children=[
-                 dash_table.DataTable(
-                    id='im-table-b', columns=columns_b, data=data_b, cell_selectable=False, fixed_rows={'headers': True},
-                    row_selectable=False, column_selectable='single', selected_columns=[], page_action='none',
-                    style_table=STYLE_DATATABLE_INDEXMATCH_B, # Blue background
-                    style_cell={**STYLE_CELL_COMMON, 'minWidth': '100px'}, style_header=STYLE_HEADER_COMMON,
-                     # Conditional style added via callback
-                    style_data_conditional=[]
-                 )])])]),
-
-    # --- Calculate Button ---
-    html.Div(children=[ 
-        html.Button("Calculate INDEX/MATCH Result", id='im-calculate-button', n_clicks=0)
-    ]),
-
-    # --- Result Display ---
-    html.Div(className="index-match-result-container", children=[
-        html.Div(id='im-result-display', children="Result: ", className='result-box')
-    ]),
-
-    html.P([
-        " Once you've built an INDEX/MATCH formula in Excel for one row, like this, you can drag the formula down and dynamically perform the same lookup for all other rows!"
-    ]) 
+    html.Div(id='tab-content')
 ]) # End main layout Div
 
 
 # --- Callbacks ---
+
+@app.callback(
+    Output('tab-content', 'children'),
+    Input('tab-selector', 'value')
+)
+def render_content(tab):
+    if tab == 'tab-index-match':
+        return html.Div([
+
+            # === Stores for holding state ===
+            dcc.Store(id='match-section-store', data={'active_button': None, 'array_col_index': None, 'array_excel_ref': None}),
+            dcc.Store(id='index-section-store', data={'active_button': None, 'array_col_index': None, 'array_excel_ref': None}),
+            dcc.Store(id='im-selection-mode-store', data={'active': None}), # Renamed for clarity (im = index/match)
+            dcc.Store(id='im-index-param-store', data=None),
+            dcc.Store(id='im-match-param-1-store', data=None),
+            dcc.Store(id='im-match-param-2-store', data=None),
+
+
+            # =======================================
+            # === MATCH and INDEX Tutorials ===
+            # =======================================
+            html.Div(className="tutorial-section-container", children=[
+                # --- MATCH Section ---
+                html.Div(className="tutorial-section tutorial-section-match", children=[
+                    html.H3("Understanding MATCH()"),
+                    html.P([html.Code("MATCH(VALUE, ARRAY, TYPE)"), " finds the ", html.Strong("position"), " of a ", html.Strong("value"), "."]),
+                    html.P("Inputs:"),
+                    html.Ul([
+                        html.Li([html.Strong("VALUE:"), " What you’re searching for. e.g., ", html.Code(f"{df_match.loc[0, NAME_COL] if not df_match.empty else 'Some Name'}")]),
+                        html.Li([html.Strong("ARRAY:"), " Which column to search. e.g., ", html.Code("B:B")]),
+                        html.Li([html.Strong("TYPE:"), " Use ", html.Code("0"), " for exact match."])
+                    ]),
+                    html.P("Output:"),
+                    html.Ul([html.Li(["The position (row number). e.g., ", html.Code("1")])]),
+                    html.P(
+                        "Type the value you're searching for into the 'VALUE' box below. Then, click the 'ARRAY' button and select the column you want to search.",
+                        className="instruction-text"
+                    ),
+                # Interactive Formula
+                    html.Div(className="formula-display-interactive", children=[
+                        html.Span("MATCH(", className="formula-part-red"),
+                        dcc.Input(id='match-input-value', type='text', placeholder="VALUE", size='15', className="input-box-red"),
+                        html.Span(", ", className="formula-part-red"),
+                        html.Button("ARRAY", id='activate-match-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
+                        html.Span(", 0)", className="formula-part-red")
+                    ]),
+                    # Table
+                    dash_table.DataTable(
+                        id='match-table', columns=columns_match, data=data_match,
+                        column_selectable='single', selected_columns=[], cell_selectable=False, row_selectable=False, page_action='none', fixed_rows={'headers': True},
+                        style_table=STYLE_DATATABLE_TUTORIAL, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON
+                    ),
+                    # Calculate Button & Result
+                    html.Button("Calculate MATCH", id='calculate-match-button', n_clicks=0, style=STYLE_CALC_BUTTON),
+                    html.Div(id='match-result-display', children="Result: ", className='result-box', style=STYLE_RESULT_BOX)
+                ]), # End MATCH Section Div
+
+                # --- INDEX Section ---
+                html.Div(className="tutorial-section tutorial-section-index", children=[
+                    html.H3("Understanding INDEX()"),
+                    html.P([html.Code("INDEX(ARRAY, POSITION)"), " finds the ", html.Strong("value "), "at a ", html.Strong("position"), "."]),
+                    html.P("Inputs:"),
+                    html.Ul([
+                        html.Li([html.Strong("ARRAY:"), " Which column has the value you want. e.g., ", html.Code("A:A")]),
+                        html.Li([html.Strong("POSITION:"), " The row number containing the value. e.g., ", html.Code("1")])
+                    ]),
+                    html.P("Output:"),
+                    html.Ul([html.Li(["The value at that position. e.g., ", html.Code(f"{df_match.loc[0, SEAT_COL] if not df_match.empty else 'Some Seat'}")])]),
+                    html.P(
+                        "Click the 'ARRAY' button and select the column containing the value you want to return. Then, type the row number into the 'POSITION' box.",
+                        className="instruction-text"
+                    ),
+                    # Interactive Formula - APPLY BLUE STYLES
+                    html.Div(className="formula-display-interactive", children=[
+                        # Use className for color
+                        html.Span("INDEX(", className="formula-part-blue"),
+                        # Use className for blue border
+                        html.Button("ARRAY", id='activate-index-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-blue'),
+                        html.Span(", ", className="formula-part-blue"),
+                        # Use className for blue border
+                        dcc.Input(id='index-input-position', type='number', placeholder="POSITION", min=1, step=1, size='10', className="input-box-blue"),
+                        html.Span(")", className="formula-part-blue")
+                    ]),
+                    # Table
+                    dash_table.DataTable(
+                        id='index-table', columns=columns_match, data=data_match,
+                        column_selectable='single', selected_columns=[], cell_selectable=False, row_selectable=False, page_action='none', fixed_rows={'headers': True},
+                        style_table=STYLE_DATATABLE_TUTORIAL, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
+                    ),
+                    # Calculate Button & Result
+                    html.Button("Calculate INDEX", id='calculate-index-button', n_clicks=0, style=STYLE_CALC_BUTTON),
+                    html.Div(id='index-result-display', children="Result: ", className='result-box', style=STYLE_RESULT_BOX)
+                ]), # End INDEX Section Div
+            ]), # End Top Row Flex Container
+
+            # --- Separator ---
+            html.Hr(className="section-separator"),
+
+            # =======================================
+            # === INDEX/MATCH Tutorial ===
+            # =======================================
+            html.H2("Using INDEX() and MATCH() together"),
+            html.P(["Combine ", html.Span("INDEX", style={'color':'blue'}), " and ", html.Span("MATCH", style={'color':'red'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'blue'}), "."]),
+            html.P("Instructions:", style={'fontWeight': 'bold'}),
+            html.Div(className="instruction-text", children=[
+                html.P([
+                    "1. ", 
+                    html.Strong(html.Span("MATCH:", style={'color': 'red'})), # Label is red and bold
+                    " Click the ", html.Span("'Lookup Value'", style={'color':'red'}), " button, then select a cell in ", html.Strong("Sheet A"), " containing the value you're searching for. ",
+                    "Click the ", html.Span("'Lookup Column'", style={'color':'red'}), " button, then select the column  in ", html.Strong("Sheet B"), " you want to search."
+                ]),
+                html.P([
+                    "2. ",
+                    html.Strong(html.Span("INDEX:", style={'color': 'darkblue'})), # Label is blue and bold
+                    " Click the ", html.Span("'Result Column'", style={'color':'darkblue'}), " button, then select the column in ", html.Strong("Sheet B"), " containing the info you want to retrieve."
+                ])
+            ]),
+            # --- Formula Display ---
+            html.Div(className='formula-display', children=[
+                html.Span("INDEX(", className="formula-part-blue"),
+                html.Span("sheetB!", className="formula-part-blue"),
+                # Button 1: Blue
+                html.Button("Result Column", id='im-activate-dyn1', n_clicks=0, className='dynamic-text-box dynamic-text-box-blue'),
+                html.Span(", ", className="formula-part-blue"),
+                html.Span("MATCH(", className="formula-part-red"),
+                # Button 2: Red
+                html.Button("Lookup Value", id='im-activate-dyn2', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
+                html.Span(", ", className="formula-part-red"),
+                html.Span("sheetB!", className="formula-part-red"),
+                # Button 3: Red
+                html.Button("Lookup Column", id='im-activate-dyn3', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
+                html.Span(", 0)", className="formula-part-red"),
+                html.Span(")", className="formula-part-blue")
+            ]),
+
+            # --- Tables Side-by-Side ---
+            html.Div(className="index-match-tables-container", children=[
+                # --- Sheet A Table ---
+                html.Div(className='table-column sheet-a', children=[
+                    html.H4("Sheet A", className='sheet-a-header'), 
+                    html.Div(className='table-container', children=[
+                        dash_table.DataTable(
+                            id='im-table-a', columns=columns_a, data=data_a, cell_selectable=True, fixed_rows={'headers': True},
+                            row_selectable=False, column_selectable=False, page_action='none',
+                            style_table=STYLE_DATATABLE_INDEXMATCH_A, # Red background
+                            style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
+                            # Conditional style added via callback
+                            style_data_conditional=[]
+                        )])]),
+                # --- Sheet B Table ---
+                html.Div(className='table-column sheet-b', children=[
+                    html.H4("Sheet B", className='sheet-b-header'), 
+                    html.Div(className='table-container', children=[
+                        dash_table.DataTable(
+                            id='im-table-b', columns=columns_b, data=data_b, cell_selectable=False, fixed_rows={'headers': True},
+                            row_selectable=False, column_selectable='single', selected_columns=[], page_action='none',
+                            style_table=STYLE_DATATABLE_INDEXMATCH_B, # Blue background
+                            style_cell={**STYLE_CELL_COMMON, 'minWidth': '100px'}, style_header=STYLE_HEADER_COMMON,
+                            # Conditional style added via callback
+                            style_data_conditional=[]
+                        )])])]),
+
+            # --- Calculate Button ---
+            html.Div(children=[ 
+                html.Button("Calculate INDEX/MATCH Result", id='im-calculate-button', n_clicks=0)
+            ]),
+
+            # --- Result Display ---
+            html.Div(className="index-match-result-container", children=[
+                html.Div(id='im-result-display', children="Result: ", className='result-box')
+            ]),
+
+            html.P([
+                " Once you've built an INDEX/MATCH formula in Excel for one row, like this, you can drag the formula down and dynamically perform the same lookup for all other rows!"
+            ]) 
+        ])
+    
+    elif tab == 'tab-text-strings':
+        return html.Div([
+            html.H3("Coming Soon: Text String Basics"),
+            html.P("This section will explore Excel functions like LEFT, RIGHT, MID, LEN, FIND, and CONCATENATE.")
+        ])
+
 
 # ==========================
 # === MATCH CALLBACKS ======
