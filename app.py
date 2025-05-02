@@ -1,3 +1,5 @@
+# --- START OF FILE app.py ---
+
 import dash
 from dash import Dash, html, dcc, dash_table, callback, Output, Input, State, ctx
 import pandas as pd
@@ -7,6 +9,7 @@ from pathlib import Path
 SHEET_A_CSV = "sheetA.csv"
 SHEET_B_CSV = "sheetB.csv"
 MATCH_CSV = "match.csv"
+TEXT_CSV = "text.csv"  
 BIOGUIDE_COL = 'bioguide' # Column name for lookup key in sheet B
 SEAT_COL = "seat"       # Column name in match.csv
 NAME_COL = "name"       # Column name in match.csv
@@ -31,6 +34,7 @@ def load_data():
     sheet_a_path = app_dir / SHEET_A_CSV
     sheet_b_path = app_dir / SHEET_B_CSV
     match_path = app_dir / MATCH_CSV
+    text_path = app_dir / TEXT_CSV 
 
     dataframes = {}
     errors = []
@@ -45,39 +49,28 @@ def load_data():
     try: dataframes['match'] = pd.read_csv(match_path)
     except Exception as e: errors.append(f"Error loading {MATCH_CSV}: {e}")
 
+    try: dataframes['text'] = pd.read_csv(text_path)
+    except Exception as e: errors.append(f"Error loading {TEXT_CSV}: {e}") 
+
     if errors:
         # Return default empty structures on error
         print("Errors during data loading:")
         for err in errors: print(f"- {err}")
-        return ({'a': pd.DataFrame(), 'b': pd.DataFrame(), 'match': pd.DataFrame()},
-                {}, {}, {}, {}, -1, [], [], [])
+        return ({'a': pd.DataFrame(), 'b': pd.DataFrame(), 'match': pd.DataFrame(), 'text': pd.DataFrame()}, # <--- ADDED 'text' default
+                {}, {}, {}, {}, -1, [], [], [], []) # <--- ADDED empty list for text cols
 
     df_a = dataframes['a']
     df_b = dataframes['b']
     df_match = dataframes['match']
+    df_text = dataframes['text']
 
     # Store Original Column Lists
     original_a_cols = df_a.columns.tolist()
     original_b_cols = df_b.columns.tolist()
     original_match_cols = df_match.columns.tolist()
-    print(f"Original A Columns: {original_a_cols}")
-    print(f"Original B Columns: {original_b_cols}")
-    print(f"Original Match Columns: {original_match_cols}")
-
-    # Create sheetB dictionary
-    if BIOGUIDE_COL not in original_b_cols:
-        raise ValueError(f"'{BIOGUIDE_COL}' column not found in {SHEET_B_CSV}.")
+    original_text_cols = df_text.columns.tolist() 
     bioguide_col_index = original_b_cols.index(BIOGUIDE_COL)
-    print(f"Bioguide Index (0-based): {bioguide_col_index}")
-    # Use original df_b for dictionary values
     sheetB_dict_local = {row[BIOGUIDE_COL]: row.tolist() for _, row in df_b.iterrows()}
-
-    # Create match.csv dictionaries
-    if SEAT_COL not in original_match_cols:
-        raise ValueError(f"'{SEAT_COL}' column not found in {MATCH_CSV}.")
-    if NAME_COL not in original_match_cols:
-        raise ValueError(f"'{NAME_COL}' column not found in {MATCH_CSV}.")
-
     seatDict_local = {}
     nameDict_local = {}
     rowDict_local = {}
@@ -88,15 +81,16 @@ def load_data():
         seatDict_local[seat_val] = row_num
         nameDict_local[name_val] = row_num
         rowDict_local[row_num] = [seat_val, name_val]
-
     return (dataframes, sheetB_dict_local, seatDict_local, nameDict_local, rowDict_local,
-            bioguide_col_index, original_a_cols, original_b_cols, original_match_cols)
+            bioguide_col_index, original_a_cols, original_b_cols, original_match_cols, original_text_cols) 
+
 
 # --- Load Data Globally ---
 try:
+    # --- UNPACKING UPDATED ---
     (dfs, sheetB_dict, seatDict, nameDict, rowDict, BIOGUIDE_COL_INDEX_B,
-     original_a_cols_list, original_b_cols_list, original_match_cols_list) = load_data()
-    df_a, df_b, df_match = dfs.get('a'), dfs.get('b'), dfs.get('match')
+     original_a_cols_list, original_b_cols_list, original_match_cols_list, original_text_cols_list) = load_data()
+    df_a, df_b, df_match, df_text = dfs.get('a'), dfs.get('b'), dfs.get('match'), dfs.get('text') 
 
     # Prepare data/columns for DataTables
     if not df_a.empty:
@@ -114,28 +108,31 @@ try:
         columns_match = [{"name": i, "id": i, "selectable": True} for i in original_match_cols_list]
     else: data_match, columns_match = [{"Error": "Load Failed"}], [{"name": "Error", "id": "Error"}]
 
+    if not df_text.empty:
+        data_text = df_text.to_dict('records')
+        columns_text = [{"name": i, "id": i} for i in original_text_cols_list]
+    else: data_text, columns_text = [{"Error": "Load Failed"}], [{"name": "Error", "id": "Error"}]
+
 except Exception as e:
     print(f"FATAL ERROR during data loading: {e}")
     # Set defaults for app to load without crashing
-    df_a, df_b, df_match = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    df_a, df_b, df_match, df_text = pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame() # <--- ADDED df_text default
     error_cols = [{"name": "Error", "id": "Error"}]
     error_data = [{"Error": "Data Load Failed"}]
     data_a, columns_a = error_data, error_cols
     data_b, columns_b = error_data, error_cols
     data_match, columns_match = error_data, error_cols
+    data_text, columns_text = error_data, error_cols 
     sheetB_dict, seatDict, nameDict, rowDict = {}, {}, {}, {}
     BIOGUIDE_COL_INDEX_B = -1
-    original_a_cols_list, original_b_cols_list, original_match_cols_list = [], [], []
+    original_a_cols_list, original_b_cols_list, original_match_cols_list, original_text_cols_list = [], [], [], [] # <--- ADDED text default list
 
 
 # --- Dash App Initialization ---
 app = Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
 
-# --- Reusable Component Styles --- (Used directly in layout)
-STYLE_DATATABLE = {'height': '200px', 'overflowY': 'auto', 'width': '100%'}
-STYLE_DATATABLE_INDEXMATCH_A = {'height': '400px', 'overflowY': 'auto', 'width': '100%', 'backgroundColor': '#ffebeb'}
-STYLE_DATATABLE_INDEXMATCH_B = {'height': '400px', 'overflowY': 'auto', 'width': '100%', 'backgroundColor': '#e0f2f7'}
-STYLE_DATATABLE_TUTORIAL = {'height': '200px', 'overflowY': 'auto', 'width': '100%', 'backgroundColor': '#e0f2f7'} # Shared style for tutorial tables
+# --- Reusable Component Styles --- 
+STYLE_DATATABLE = {'height': '250px', 'overflowY': 'auto', 'width': '100%'}
 STYLE_CELL_COMMON = {'textAlign': 'left', 'padding': '5px'}
 STYLE_HEADER_COMMON = {'fontWeight': 'bold'}
 STYLE_CALC_BUTTON = {'marginTop': '10px'}
@@ -161,6 +158,7 @@ app.layout = html.Div([
 )
 def render_content(tab):
     if tab == 'tab-index-match':
+
         return html.Div([
 
             # === Stores for holding state ===
@@ -170,7 +168,6 @@ def render_content(tab):
             dcc.Store(id='im-index-param-store', data=None),
             dcc.Store(id='im-match-param-1-store', data=None),
             dcc.Store(id='im-match-param-2-store', data=None),
-
 
             # =======================================
             # === MATCH and INDEX Tutorials ===
@@ -204,7 +201,7 @@ def render_content(tab):
                     dash_table.DataTable(
                         id='match-table', columns=columns_match, data=data_match,
                         column_selectable='single', selected_columns=[], cell_selectable=False, row_selectable=False, page_action='none', fixed_rows={'headers': True},
-                        style_table=STYLE_DATATABLE_TUTORIAL, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON
+                        style_table=STYLE_DATATABLE, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON
                     ),
                     # Calculate Button & Result
                     html.Button("Calculate MATCH", id='calculate-match-button', n_clicks=0, style=STYLE_CALC_BUTTON),
@@ -241,16 +238,13 @@ def render_content(tab):
                     dash_table.DataTable(
                         id='index-table', columns=columns_match, data=data_match,
                         column_selectable='single', selected_columns=[], cell_selectable=False, row_selectable=False, page_action='none', fixed_rows={'headers': True},
-                        style_table=STYLE_DATATABLE_TUTORIAL, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
+                        style_table=STYLE_DATATABLE, style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
                     ),
                     # Calculate Button & Result
                     html.Button("Calculate INDEX", id='calculate-index-button', n_clicks=0, style=STYLE_CALC_BUTTON),
                     html.Div(id='index-result-display', children="Result: ", className='result-box', style=STYLE_RESULT_BOX)
                 ]), # End INDEX Section Div
             ]), # End Top Row Flex Container
-
-            # --- Separator ---
-            html.Hr(className="section-separator"),
 
             # =======================================
             # === INDEX/MATCH Tutorial ===
@@ -260,7 +254,7 @@ def render_content(tab):
             html.P("Instructions:", style={'fontWeight': 'bold'}),
             html.Div(className="instruction-text", children=[
                 html.P([
-                    "1. ", 
+                    "1. ",
                     html.Strong(html.Span("MATCH:", style={'color': 'red'})), # Label is red and bold
                     " Click the ", html.Span("'Lookup Value'", style={'color':'red'}), " button, then select a cell in ", html.Strong("Sheet A"), " containing the value you're searching for. ",
                     "Click the ", html.Span("'Lookup Column'", style={'color':'red'}), " button, then select the column  in ", html.Strong("Sheet B"), " you want to search."
@@ -293,31 +287,31 @@ def render_content(tab):
             html.Div(className="index-match-tables-container", children=[
                 # --- Sheet A Table ---
                 html.Div(className='table-column sheet-a', children=[
-                    html.H4("Sheet A", className='sheet-a-header'), 
+                    html.H4("Sheet A", className='sheet-a-header'),
                     html.Div(className='table-container', children=[
                         dash_table.DataTable(
                             id='im-table-a', columns=columns_a, data=data_a, cell_selectable=True, fixed_rows={'headers': True},
                             row_selectable=False, column_selectable=False, page_action='none',
-                            style_table=STYLE_DATATABLE_INDEXMATCH_A, # Red background
+                            style_table=STYLE_DATATABLE, 
                             style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
                             # Conditional style added via callback
                             style_data_conditional=[]
                         )])]),
                 # --- Sheet B Table ---
                 html.Div(className='table-column sheet-b', children=[
-                    html.H4("Sheet B", className='sheet-b-header'), 
+                    html.H4("Sheet B", className='sheet-b-header'),
                     html.Div(className='table-container', children=[
                         dash_table.DataTable(
                             id='im-table-b', columns=columns_b, data=data_b, cell_selectable=False, fixed_rows={'headers': True},
                             row_selectable=False, column_selectable='single', selected_columns=[], page_action='none',
-                            style_table=STYLE_DATATABLE_INDEXMATCH_B, # Blue background
+                            style_table=STYLE_DATATABLE,
                             style_cell={**STYLE_CELL_COMMON, 'minWidth': '100px'}, style_header=STYLE_HEADER_COMMON,
                             # Conditional style added via callback
                             style_data_conditional=[]
                         )])])]),
 
             # --- Calculate Button ---
-            html.Div(children=[ 
+            html.Div(children=[
                 html.Button("Calculate INDEX/MATCH Result", id='im-calculate-button', n_clicks=0)
             ]),
 
@@ -328,16 +322,30 @@ def render_content(tab):
 
             html.P([
                 " Once you've built an INDEX/MATCH formula in Excel for one row, like this, you can drag the formula down and dynamically perform the same lookup for all other rows!"
-            ]) 
+            ])
         ])
-    
+
+    # --- THIS SECTION UPDATED ---
     elif tab == 'tab-text-strings':
         return html.Div([
-            html.H3("Coming Soon: Text String Basics"),
-            html.P("This section will explore Excel functions like LEFT, RIGHT, MID, LEN, FIND, and CONCATENATE.")
+            html.H3("Text String Basics"), # Updated title
+            html.P("This section explores Excel functions like LEFT, RIGHT, MID, LEN, FIND, and CONCATENATE using the data below."),
+            html.H4("Sample Text Data"), # Header for the table
+            dash_table.DataTable(
+                id='text-table',
+                columns=columns_text, # Use the globally prepared columns
+                data=data_text,       # Use the globally prepared data
+                page_action='none',
+                fixed_rows={'headers': True},
+                style_table=STYLE_DATATABLE,
+                style_cell=STYLE_CELL_COMMON,
+                style_header=STYLE_HEADER_COMMON,
+            ),
+            html.P("Interactive exercises coming soon!", style={'marginTop': '15px'}) # Placeholder for future content
         ])
+    # --- END UPDATED section ---
 
-
+# --- REMAINING CALLBACKS (Unchanged) ---
 # ==========================
 # === MATCH CALLBACKS ======
 # ==========================
@@ -813,4 +821,4 @@ server = app.server
 # --- Run the App ---
 if __name__ == '__main__':
     # app.run(debug=True)
-    app.run(debug=False)
+    app.run(debug=False) # Use False for production/deployment
