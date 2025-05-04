@@ -1,9 +1,11 @@
 # --- START OF FILE app.py ---
 
 import dash
-from dash import Dash, html, dcc, dash_table, callback, Output, Input, State, ctx
+from dash import Dash, html, dcc, dash_table, callback, Output, Input, State, ctx, MATCH, ALL, ClientsideFunction
 import pandas as pd
 from pathlib import Path
+import uuid # Import uuid for unique IDs
+import math # For checking NaN
 
 # --- Constants ---
 SHEET_A_CSV = "sheetA.csv"
@@ -15,8 +17,13 @@ SEAT_COL = "seat"       # Column name in match.csv
 NAME_COL = "name"       # Column name in match.csv
 HIGHLIGHT_COLOR_RED = '#ffcccc'  # Light Red
 HIGHLIGHT_COLOR_BLUE = '#cce5ff' # Light Blue
+TEXT_TABLE_ID = 'text-table' # ID for the text data table
+TEXT_FORMULA_STORE_ID = 'text-formula-store'
+TEXT_SELECTION_STORE_ID = 'text-selection-mode-store'
+TEXT_FORMULA_DISPLAY_ID = 'text-formula-display'
+TEXT_OUTPUT_DISPLAY_ID = 'text-output-display'
 
-# --- Helper Function ---
+# --- Helper Functions ---
 def get_excel_col_name(n: int) -> str:
     """Converts a 0-based column index to an Excel-style column name (A, B, ...)."""
     name = ""
@@ -26,6 +33,92 @@ def get_excel_col_name(n: int) -> str:
         n = n // 26 - 1
         if n < 0: break
     return name
+
+def _to_str_safe(val):
+    """Safely convert input to string, handling None and NaN."""
+    if val is None: return ""
+    if isinstance(val, float) and math.isnan(val): return ""
+    return str(val)
+
+def excel_left(text: str, num_chars: int) -> str:
+    """Mimics Excel's LEFT function with error handling."""
+    text_str = _to_str_safe(text)
+    try:
+        num = int(num_chars) + 1
+        if num < 0:
+            return "Error: Number of characters cannot be negative."
+        return text_str[:num]
+    except (ValueError, TypeError):
+        return "Error: Second argument (num_chars) must be a valid integer."
+    except Exception as e:
+        return f"Error in LEFT: {e}"
+
+def excel_right(text: str, num_chars: int) -> str:
+    """Mimics Excel's RIGHT function with error handling."""
+    text_str = _to_str_safe(text)
+    try:
+        num = int(num_chars) + 1
+        if num < 0:
+            return "Error: Number of characters cannot be negative."
+        return text_str[-num:] if num > 0 else ""
+    except (ValueError, TypeError):
+        return "Error: Second argument (num_chars) must be a valid integer."
+    except Exception as e:
+        return f"Error in RIGHT: {e}"
+
+def excel_mid(text: str, start_num: int, num_chars: int) -> str:
+    """Mimics Excel's MID function with error handling."""
+    text_str = _to_str_safe(text)
+    try:
+        start = int(start_num)
+        num = int(num_chars)
+        if start < 1:
+            return "Error: Start number must be 1 or greater."
+        if num < 0:
+            return "Error: Number of characters cannot be negative."
+        # Adjust start_num to be 0-based index
+        return text_str[start-1 : start-1+num]
+    except (ValueError, TypeError):
+        return "Error: Second and third arguments must be valid integers."
+    except Exception as e:
+        return f"Error in MID: {e}"
+
+def excel_substitute(text: str, old_text: str, new_text: str) -> str:
+    """Mimics Excel's SUBSTITUTE function (basic version)."""
+    text_str = _to_str_safe(text)
+    old_text_str = _to_str_safe(old_text)
+    new_text_str = _to_str_safe(new_text)
+    if old_text_str == "": return text_str # Excel SUBSTITUTE returns original text if old_text is empty
+    try:
+        return text_str.replace(old_text_str, new_text_str)
+    except Exception as e:
+        return f"Error in SUBSTITUTE: {e}"
+
+def excel_textbefore(text: str, delimiter: str) -> str:
+    """Mimics Excel's TEXTBEFORE function (basic version)."""
+    text_str = _to_str_safe(text)
+    delimiter_str = _to_str_safe(delimiter)
+    if delimiter_str == "": return "" # Excel TEXTBEFORE returns empty string if delimiter is empty
+    try:
+        parts = text_str.split(delimiter_str, 1)
+        if len(parts) == 1:
+            return f"Error: Delimiter '{delimiter_str}' not found in text."
+        return parts[0]
+    except Exception as e:
+        return f"Error in TEXTBEFORE: {e}"
+
+def excel_textafter(text: str, delimiter: str) -> str:
+    """Mimics Excel's TEXTAFTER function (basic version)."""
+    text_str = _to_str_safe(text)
+    delimiter_str = _to_str_safe(delimiter)
+    if delimiter_str == "": return text_str # Excel TEXTAFTER returns original text if delimiter is empty
+    try:
+        parts = text_str.split(delimiter_str, 1)
+        if len(parts) == 1:
+            return f"Error: Delimiter '{delimiter_str}' not found in text."
+        return parts[1]
+    except Exception as e:
+        return f"Error in TEXTAFTER: {e}"
 
 # --- Data Loading Function ---
 def load_data():
@@ -137,11 +230,16 @@ STYLE_CELL_COMMON = {'textAlign': 'left', 'padding': '5px'}
 STYLE_HEADER_COMMON = {'fontWeight': 'bold'}
 STYLE_CALC_BUTTON = {'marginTop': '10px'}
 STYLE_RESULT_BOX = {'marginTop': '10px'}
+STYLE_FORMULA_COMPONENT = {'marginRight': '5px', 'display': 'inline-block'} # Style for formula parts
+STYLE_DYNAMIC_BUTTON = {'margin': '0 2px'} # Style for the dynamic cell buttons
 
 
 # --- App Layout ---
 app.layout = html.Div([
     html.H1("NJPC Excel Training"), # Main Title
+    # Stores for text tab
+    dcc.Store(id=TEXT_FORMULA_STORE_ID, data=[]), # Holds list of formula component dicts
+    dcc.Store(id=TEXT_SELECTION_STORE_ID, data={'active_component_id': None, 'active_param_index': None}), # Tracks which dynamic text button is active
     dcc.Tabs(id="tab-selector", value='tab-text-strings', className="tab--selector", children=[
         dcc.Tab(label='Text String Basics', value='tab-text-strings'),
         dcc.Tab(label='Index Match', value='tab-index-match'),
@@ -164,7 +262,7 @@ def render_content(tab):
             # === Stores for holding state ===
             dcc.Store(id='match-section-store', data={'active_button': None, 'array_col_index': None, 'array_excel_ref': None}),
             dcc.Store(id='index-section-store', data={'active_button': None, 'array_col_index': None, 'array_excel_ref': None}),
-            dcc.Store(id='im-selection-mode-store', data={'active': None}), # Renamed for clarity (im = index/match)
+            dcc.Store(id='im-selection-mode-store', data={'active': None}),
             dcc.Store(id='im-index-param-store', data=None),
             dcc.Store(id='im-match-param-1-store', data=None),
             dcc.Store(id='im-match-param-2-store', data=None),
@@ -325,27 +423,135 @@ def render_content(tab):
             ])
         ])
 
-    # --- THIS SECTION UPDATED ---
     elif tab == 'tab-text-strings':
         return html.Div([
-            html.H3("Text String Basics"), # Updated title
-            html.P("This section explores Excel functions like LEFT, RIGHT, MID, LEN, FIND, and CONCATENATE using the data below."),
-            html.H4("Sample Text Data"), # Header for the table
-            dash_table.DataTable(
-                id='text-table',
-                columns=columns_text, # Use the globally prepared columns
-                data=data_text,       # Use the globally prepared data
-                page_action='none',
-                fixed_rows={'headers': True},
-                style_table=STYLE_DATATABLE,
-                style_cell=STYLE_CELL_COMMON,
-                style_header=STYLE_HEADER_COMMON,
-            ),
-            html.P("Interactive exercises coming soon!", style={'marginTop': '15px'}) # Placeholder for future content
-        ])
-    # --- END UPDATED section ---
+            html.H2("Text String Basics"),
+            html.P("Learn how to manipulate text using common Excel functions."),
 
-# --- REMAINING CALLBACKS (Unchanged) ---
+            # --- Explanations (Example for LEFT) ---
+            html.Div(className="explanation-section", children=[
+                 html.H4("Function Explanations"),
+                 html.Details([
+                     html.Summary("LEFT(text, num_chars)"),
+                     html.P("Returns the specified number of characters from the start of a text string."),
+                     html.Ul([
+                         html.Li([html.Strong("text:"), " The text string containing the characters you want to extract."]),
+                         html.Li([html.Strong("num_chars:"), " The number of characters you want LEFT to extract."]),
+                     ]),
+                     html.P(html.Em("Example: LEFT(\"Apple\", 3) returns \"App\""))
+                 ]),
+                 # Add Details sections for RIGHT, MID, SUBSTITUTE, TEXTBEFORE, TEXTAFTER, &
+                  html.Details([
+                     html.Summary("RIGHT(text, num_chars)"),
+                     html.P("Returns the specified number of characters from the end of a text string."),
+                     html.Ul([
+                         html.Li([html.Strong("text:"), " The text string containing the characters you want to extract."]),
+                         html.Li([html.Strong("num_chars:"), " The number of characters you want RIGHT to extract."]),
+                     ]),
+                     html.P(html.Em("Example: RIGHT(\"Apple\", 2) returns \"le\""))
+                 ]),
+                  html.Details([
+                     html.Summary("MID(text, start_num, num_chars)"),
+                     html.P("Returns a specific number of characters from a text string, starting at the position you specify."),
+                      html.Ul([
+                         html.Li([html.Strong("text:"), " The text string containing the characters you want to extract."]),
+                         html.Li([html.Strong("start_num:"), " The position of the first character you want to extract (1 is the first character)."]),
+                         html.Li([html.Strong("num_chars:"), " The number of characters you want MID to return."]),
+                     ]),
+                     html.P(html.Em("Example: MID(\"Apple Pie\", 7, 3) returns \"Pie\""))
+                 ]),
+                  html.Details([
+                     html.Summary("SUBSTITUTE(text, old_text, new_text)"),
+                     html.P("Replaces existing text with new text in a text string."),
+                      html.Ul([
+                         html.Li([html.Strong("text:"), " The text string containing the text you want to substitute."]),
+                         html.Li([html.Strong("old_text:"), " The text you want to replace."]),
+                         html.Li([html.Strong("new_text:"), " The text you want to replace old_text with."]),
+                     ]),
+                     html.P(html.Em("Example: SUBSTITUTE(\"Big Box\", \"Big\", \"Small\") returns \"Small Box\""))
+                 ]),
+                 html.Details([
+                     html.Summary("TEXTBEFORE(text, delimiter)"),
+                     html.P("Returns text that occurs before a given character or string (delimiter). Basic version."),
+                      html.Ul([
+                         html.Li([html.Strong("text:"), " The text you want to search within."]),
+                         html.Li([html.Strong("delimiter:"), " The text that marks the point before which you want to extract."]),
+                     ]),
+                     html.P(html.Em("Example: TEXTBEFORE(\"Red-Blue\", \"-\") returns \"Red\""))
+                 ]),
+                  html.Details([
+                     html.Summary("TEXTAFTER(text, delimiter)"),
+                     html.P("Returns text that occurs after a given character or string (delimiter). Basic version."),
+                      html.Ul([
+                         html.Li([html.Strong("text:"), " The text you want to search within."]),
+                         html.Li([html.Strong("delimiter:"), " The text that marks the point after which you want to extract."]),
+                     ]),
+                     html.P(html.Em("Example: TEXTAFTER(\"Red-Blue\", \"-\") returns \"Blue\""))
+                 ]),
+                 html.Details([
+                     html.Summary("& (Ampersand / Concatenate)"),
+                     html.P("Joins several text strings into one text string."),
+                     html.P(html.Em("Example: \"Hello\" & \" \" & \"World\" returns \"Hello World\""))
+                 ]),
+                 html.Details([
+                     html.Summary("\"\" (Literal Text)"),
+                     html.P("Used to include literal text strings within formulas, often combined with &. The text must be enclosed in double quotes."),
+                     html.P(html.Em("Example: \"Rep. \" & A2 & \" (\" & B2 & \")\""))
+                 ]),
+            ]), # End Explanations Div
+
+            # --- Interactive Section ---
+            html.Div(className="interactive-text-section", children=[
+                html.H3("Build Your Formula"),
+                html.P("Goal: Combine data from the table below to create names in the format 'Rep./Sen. FirstName LastName (Party-State[-District])'."),
+                html.P(html.Em("Example: Rep. Nick Begich (R-AK-AL) or Sen. Dan Sullivan (R-AK)")),
+
+                # --- Formula Builder Buttons ---
+                html.Div(className="formula-buttons", children=[
+                    html.Button("LEFT", id={'type': 'add-formula-btn', 'index': 'LEFT'}, n_clicks=0),
+                    html.Button("RIGHT", id={'type': 'add-formula-btn', 'index': 'RIGHT'}, n_clicks=0),
+                    html.Button("MID", id={'type': 'add-formula-btn', 'index': 'MID'}, n_clicks=0),
+                    html.Button("SUBSTITUTE", id={'type': 'add-formula-btn', 'index': 'SUBSTITUTE'}, n_clicks=0),
+                    html.Button("TEXTBEFORE", id={'type': 'add-formula-btn', 'index': 'TEXTBEFORE'}, n_clicks=0),
+                    html.Button("TEXTAFTER", id={'type': 'add-formula-btn', 'index': 'TEXTAFTER'}, n_clicks=0),
+                    html.Button("&", id={'type': 'add-formula-btn', 'index': '&'}, n_clicks=0),
+                    html.Button('""', id={'type': 'add-formula-btn', 'index': 'LITERAL'}, n_clicks=0),
+                    html.Button('[Cell]', id={'type': 'add-formula-btn', 'index': 'CELL'}, n_clicks=0, title="Add a direct cell reference value"),
+                    html.Button("Delete Last", id='delete-last-formula-btn', n_clicks=0, style={'marginLeft': '20px'}),
+                    html.Button("Clear All", id='clear-formula-btn', n_clicks=0),
+                ]),
+
+                # --- Dynamic Formula Display Area ---
+                html.H4("Current Formula:", style={'marginTop': '15px'}),
+                html.Div(id=TEXT_FORMULA_DISPLAY_ID, className="formula-display-interactive", style={'minHeight': '40px', 'border': '1px solid #ccc', 'padding': '10px'}),
+
+                # --- Output Display Area ---
+                html.H4("Result:", style={'marginTop': '15px'}),
+                html.Div(id=TEXT_OUTPUT_DISPLAY_ID, className='result-box', style={'minHeight': '30px', 'border': '1px solid #eee', 'padding': '5px', 'backgroundColor': '#f8f8f8'}),
+
+                # --- Data Table ---
+                html.H4("Sample Text Data", style={'marginTop': '20px'}),
+                dash_table.DataTable(
+                    id=TEXT_TABLE_ID,
+                    columns=columns_text,
+                    data=data_text,
+                    cell_selectable=True, # Allow cell selection
+                    row_selectable=False,
+                    column_selectable=False,
+                    page_action='none',
+                    fixed_rows={'headers': True},
+                    style_table=STYLE_DATATABLE,
+                    style_cell=STYLE_CELL_COMMON,
+                    style_header=STYLE_HEADER_COMMON,
+                    style_data_conditional=[], # Will be used to highlight selected cell
+                    tooltip_data=[{column: {'value': str(value), 'type': 'markdown'}
+                               for column, value in row.items()}
+                              for row in data_text],
+                     tooltip_duration=None,
+                ),
+            ]), # End Interactive Section Div
+        ]) # End Text Tab Div
+
 # ==========================
 # === MATCH CALLBACKS ======
 # ==========================
@@ -456,7 +662,7 @@ def style_selected_match_column(match_store_data):
             selected_id = original_match_cols_list[col_index]
             styles.append({
                 'if': {'column_id': selected_id},
-                'backgroundColor': HIGHLIGHT_COLOR_RED, # CHANGE TO RED HIGHLIGHT
+                'backgroundColor': HIGHLIGHT_COLOR_RED,
                 'color': 'black'
             })
         except Exception as e: print(f"Error styling MATCH col: {e}")
@@ -587,7 +793,7 @@ def style_selected_index_column(index_store_data):
             selected_id = original_match_cols_list[col_index]
             styles.append({
                 'if': {'column_id': selected_id},
-                'backgroundColor': HIGHLIGHT_COLOR_BLUE, # CHANGE TO BLUE HIGHLIGHT
+                'backgroundColor': HIGHLIGHT_COLOR_BLUE,
                 'color': 'black'
             })
         except Exception as e: print(f"Error styling INDEX col: {e}")
@@ -815,6 +1021,579 @@ def style_selected_im_b_columns(index_param_data, match_param_2_data):
 
     print(f"-> Final B Styles: {styles}")
     return styles
+
+
+# ==================================
+# === TEXT STRING CALLBACKS      ===
+# ==================================
+
+# --- Callback to Add Formula Components ---
+@callback(
+    Output(TEXT_FORMULA_STORE_ID, 'data', allow_duplicate=True),
+    Output(TEXT_OUTPUT_DISPLAY_ID, 'children', allow_duplicate=True), # Update output for errors
+    # --- INPUTS ---
+    Input({'type': 'add-formula-btn', 'index': ALL}, 'n_clicks'), # Keep this Input
+    Input('clear-formula-btn', 'n_clicks'),
+    Input('delete-last-formula-btn', 'n_clicks'),
+    # --- STATES ---
+    State(TEXT_FORMULA_STORE_ID, 'data'),
+    # --- REMOVED State for add_btns_ids ---
+    prevent_initial_call=True
+)
+# --- REMOVED add_btns_ids from signature ---
+def update_formula_structure(add_btns_clicks, clear_btn_clicks, delete_btn_clicks, current_formula):
+    triggered_id = ctx.triggered_id
+    output_message = dash.no_update # Default to no change for error display
+
+    # Check if the callback was triggered by any input change at all
+    if not ctx.triggered:
+        # print("Callback triggered but ctx.triggered is empty (e.g., initial load check).")
+        return dash.no_update, dash.no_update
+
+    triggered_input_info = ctx.triggered[0] # Info about the specific input that fired
+    triggered_value = triggered_input_info['value']
+
+    # --- Handle Clear and Delete First ---
+    if triggered_id == 'clear-formula-btn':
+        if triggered_value is not None and triggered_value > 0:
+            print("Clear button triggered.")
+            return [], "Result: Formula cleared."
+        else:
+            return dash.no_update, dash.no_update # Ignore if n_clicks is 0 or None
+
+    if triggered_id == 'delete-last-formula-btn':
+        if triggered_value is not None and triggered_value > 0:
+            print("Delete button triggered.")
+            if current_formula:
+                current_formula.pop()
+                return current_formula, dash.no_update # Let calculation callback update result
+            else:
+                return dash.no_update, "Result: Nothing to delete."
+        else:
+             return dash.no_update, dash.no_update # Ignore if n_clicks is 0 or None
+
+
+    # --- Handle Adding Components ---
+    is_add_button_click = False
+    if isinstance(triggered_id, dict) and triggered_id.get('type') == 'add-formula-btn':
+        if triggered_value is not None and triggered_value > 0:
+            is_add_button_click = True
+        # else:
+        #     print(f"Ignoring add button trigger for {triggered_id}: n_clicks not > 0")
+
+
+    if is_add_button_click:
+        component_type = triggered_id['index']
+        component_id = str(uuid.uuid4()) # Unique ID for this component instance
+        print(f"Add button triggered: {component_type}")
+
+        # --- Nesting Prevention Logic ---
+        last_component_type = current_formula[-1]['type'] if current_formula else None
+        can_add_value_component = not current_formula or last_component_type == 'operator'
+        can_add_operator = bool(current_formula) and last_component_type != 'operator'
+
+        new_component = None
+
+        # --- Component Creation Logic ---
+        if component_type == '&':
+            if not can_add_operator:
+                output_message = "Error: Cannot start with '&' or have consecutive '&&'."
+            else:
+                new_component = {'id': component_id, 'type': 'operator', 'value': '&'}
+        elif component_type in ['LITERAL', 'CELL']:
+            if not can_add_value_component:
+                 output_message = f"Error: Use '&' before adding {component_type}."
+            elif component_type == 'LITERAL':
+                input_id = {'type': 'text-literal-input', 'index': component_id}
+                new_component = {'id': component_id, 'type': 'literal_string', 'input_id': input_id, 'value': ""}
+            elif component_type == 'CELL':
+                # Unique ID for this specific cell button instance
+                button_id = {'type': 'text-cell-btn', 'index': f'{component_id}-cell'}
+                new_component = {'id': component_id, 'type': 'cell_value', 'ref': None, 'value': None, 'button_id': button_id}
+        elif component_type in ['LEFT', 'RIGHT', 'MID', 'SUBSTITUTE', 'TEXTBEFORE', 'TEXTAFTER']:
+            if not can_add_value_component:
+                output_message = f"Error: Cannot add {component_type} here. Use '&' to connect formulas or text."
+            else:
+                params_structure = { # Define parameters needed for each function
+                    'LEFT':       [None, None], 'RIGHT':      [None, None], 'MID':        [None, None, None],
+                    'SUBSTITUTE': [None, None, None], 'TEXTBEFORE': [None, None], 'TEXTAFTER':  [None, None],
+                }
+                param_ids_structure = { # Generate unique IDs for interactive elements
+                    'LEFT':       [{'type': 'text-cell-btn', 'index': f'{component_id}-0'}, {'type': 'text-num-input', 'index': f'{component_id}-1'}],
+                    'RIGHT':      [{'type': 'text-cell-btn', 'index': f'{component_id}-0'}, {'type': 'text-num-input', 'index': f'{component_id}-1'}],
+                    'MID':        [{'type': 'text-cell-btn', 'index': f'{component_id}-0'}, {'type': 'text-num-input', 'index': f'{component_id}-1'}, {'type': 'text-num-input', 'index': f'{component_id}-2'}],
+                    'SUBSTITUTE': [{'type': 'text-cell-btn', 'index': f'{component_id}-0'}, {'type': 'text-text-input', 'index': f'{component_id}-1'}, {'type': 'text-text-input', 'index': f'{component_id}-2'}],
+                    'TEXTBEFORE': [{'type': 'text-cell-btn', 'index': f'{component_id}-0'}, {'type': 'text-text-input', 'index': f'{component_id}-1'}],
+                    'TEXTAFTER':  [{'type': 'text-cell-btn', 'index': f'{component_id}-0'}, {'type': 'text-text-input', 'index': f'{component_id}-1'}],
+                }
+                new_component = {
+                    'id': component_id, 'type': 'function', 'name': component_type,
+                    'params': params_structure[component_type],
+                    'param_ids': param_ids_structure[component_type]
+                }
+
+        # --- Component Handling Logic (remains the same) ---
+        if new_component:
+            current_formula.append(new_component)
+            return current_formula, dash.no_update # Let calculation run
+        else:
+            # If component wasn't created due to error, return no_update for formula, but show error message
+            return dash.no_update, output_message if output_message != dash.no_update else "Error: Invalid operation."
+
+    # --- If not clear, delete, or a valid add button click, do nothing ---
+    # print(f"No valid action taken for trigger: {triggered_id}")
+    return dash.no_update, output_message
+
+# --- Callback to Render the Dynamic Formula Display ---
+@callback(
+    Output(TEXT_FORMULA_DISPLAY_ID, 'children'),
+    Input(TEXT_FORMULA_STORE_ID, 'data'),
+    Input(TEXT_SELECTION_STORE_ID, 'data'),
+)
+def render_formula_display(formula_data, selection_mode):
+    if not formula_data: return ""
+    display_elements = []
+    active_component_id = selection_mode.get('active_component_id')
+    active_param_index = selection_mode.get('active_param_index')
+    print(f"Rendering display. Active mode: Comp={active_component_id}, Param={active_param_index}")
+
+    for i, component in enumerate(formula_data):
+        comp_id = component['id']
+        comp_type = component['type']
+
+        # ... (operator, literal_string, cell_value rendering) ...
+        if comp_type == 'operator':
+            display_elements.append(html.Span(f" {component['value']} ", style=STYLE_FORMULA_COMPONENT))
+        elif comp_type == 'literal_string':
+            input_id = component['input_id']
+            display_elements.append(html.Span('"', style=STYLE_FORMULA_COMPONENT))
+            display_elements.append(dcc.Input(
+                id=input_id, type='text', value=component.get('value', ''), placeholder="text",
+                size='10', style=STYLE_FORMULA_COMPONENT # No debounce
+            ))
+            display_elements.append(html.Span('"', style=STYLE_FORMULA_COMPONENT))
+        elif comp_type == 'cell_value':
+             button_id = component['button_id']
+             button_text = "Select Cell"
+             if isinstance(component.get('ref'), str): button_text = component['ref']
+             is_active_button = (active_component_id == comp_id and active_param_index == 'cell')
+             button_class = 'dynamic-text-box' + (' active' if is_active_button else '')
+             print(f"  Rendering Cell Value Button: Comp={comp_id}. Mode Comp={active_component_id}, Mode Param={active_param_index}. Is Active? {is_active_button}. Class='{button_class}'")
+             display_elements.append(html.Button(
+                 button_text, id=button_id, n_clicks=0,
+                 className=button_class, style=STYLE_DYNAMIC_BUTTON
+             ))
+        elif comp_type == 'function':
+            func_name = component['name']
+            # --- START DEBUG PRINTS ---
+            print(f"--- Processing Function Component ---")
+            print(f"DEBUG: func_name = {repr(func_name)}") # Use repr for clarity
+            print(f"DEBUG: func_name type = {type(func_name)}")
+            # --- END DEBUG PRINTS ---
+            params = component['params']
+            param_ids = component['param_ids']
+            display_elements.append(html.Span(f"{func_name}(", style=STYLE_FORMULA_COMPONENT))
+            param_render_map = {
+                 'LEFT':       [('cell', 'text'), ('number', '#chars')],
+                 'RIGHT':      [('cell', 'text'), ('number', '#chars')],
+                 'MID':        [('cell', 'text'), ('number', 'start'), ('number', '#chars')],
+                 'SUBSTITUTE': [('cell', 'text'), ('text', 'old_text'), ('text', 'new_text')],
+                 'TEXTBEFORE': [('cell', 'text'), ('text', 'delimiter')],
+                 'TEXTAFTER':  [('cell', 'text'), ('text', 'delimiter')],
+            }
+            # --- START DEBUG PRINTS ---
+            print(f"DEBUG: param_render_map = {repr(param_render_map)}") # Use repr
+            print(f"DEBUG: param_render_map type = {type(param_render_map)}")
+            # --- END DEBUG PRINTS ---
+            render_info = param_render_map.get(func_name, [])
+
+            for p_idx, param_val in enumerate(params):
+                if p_idx > 0: display_elements.append(html.Span(", ", style=STYLE_FORMULA_COMPONENT))
+                param_id = param_ids[p_idx]
+                param_type, placeholder = render_info[p_idx] if p_idx < len(render_info) else ('unknown', '??')
+
+                if param_type == 'cell':
+                    button_text = "Select Cell"
+                    cell_info = param_val
+                    if isinstance(cell_info, dict) and 'ref' in cell_info and cell_info['ref'] is not None:
+                         button_text = cell_info['ref']
+
+                    # Check if active (compare ID and numerical index p_idx)
+                    is_active_button = (active_component_id == comp_id and active_param_index == p_idx)
+                    button_class = 'dynamic-text-box' + (' active' if is_active_button else '')
+                    # print(f"  Button Check: Comp={comp_id}, Param={p_idx}. Mode Comp={active_component_id}, Mode Param={active_param_index}. Is Active? {is_active_button}. Class='{button_class}'")
+
+                    display_elements.append(html.Button(
+                        button_text, id=param_id, n_clicks=0,
+                        className=button_class, style=STYLE_DYNAMIC_BUTTON
+                    ))
+                elif param_type == 'number':
+                     display_elements.append(dcc.Input(
+                        id=param_id, type='number', placeholder=placeholder, value=param_val,
+                        min=0 if func_name in ['LEFT', 'RIGHT', 'MID'] and p_idx > 0 else None,
+                        step=1, size='5',
+                        # debounce=True, # <-- REMOVE/COMMENT OUT
+                        style=STYLE_FORMULA_COMPONENT
+                    ))
+                elif param_type == 'text':
+                     display_elements.append(dcc.Input(
+                        id=param_id, type='text', placeholder=placeholder, value=param_val,
+                        size='10',
+                        # debounce=True, # <-- REMOVE/COMMENT OUT
+                        style=STYLE_FORMULA_COMPONENT
+                    ))
+
+            display_elements.append(html.Span(")", style=STYLE_FORMULA_COMPONENT))
+
+    return display_elements
+# --- Callback to Activate Cell Selection Mode ---
+@callback(
+    Output(TEXT_SELECTION_STORE_ID, 'data'),
+    Input({'type': 'text-cell-btn', 'index': ALL}, 'n_clicks'),
+    State(TEXT_SELECTION_STORE_ID, 'data'),
+    prevent_initial_call=True,
+)
+def activate_text_cell_selection(buttons_n_clicks, current_mode):
+    triggered_id = ctx.triggered_id
+    # Ensure a *specific* button click triggered this
+    if not triggered_id or not ctx.triggered or ctx.triggered[0]['value'] is None or ctx.triggered[0]['value'] == 0:
+        # print("Skipping activation: No relevant button click.")
+        return dash.no_update
+
+    print(f"Attempting activation for trigger: {triggered_id}")
+
+    try:
+        index_str = triggered_id['index']
+        param_index_to_set = None
+        component_id = None
+
+        # Parse the ID to get component ID and parameter index (or 'cell')
+        if index_str.endswith('-cell'):
+            component_id = index_str[:-len('-cell')]
+            param_index_to_set = 'cell'
+        else:
+            # Assume standard function parameter format: uuid-param_idx
+            uuid_part, param_index_str = index_str.rsplit('-', 1)
+            component_id = uuid_part
+            param_index_to_set = int(param_index_str) # Can raise ValueError
+
+        # --- If parsing succeeded, proceed ---
+        print(f"Parsed OK -> Activating text selection for Component: {component_id}, Param: {param_index_to_set}")
+
+        # Check if the mode actually needs changing
+        if current_mode.get('active_component_id') != component_id or current_mode.get('active_param_index') != param_index_to_set:
+             print("  -> Setting new active mode.")
+             # Return the new mode state
+             return {'active_component_id': component_id, 'active_param_index': param_index_to_set}
+        else:
+             # User clicked the *same* active button again. Don't change mode.
+             print("  -> Re-clicked active button. Mode unchanged.")
+             return dash.no_update
+
+    except (ValueError, IndexError, TypeError) as e:
+         # Handle errors during parsing (rsplit failure, int conversion failure)
+         print(f"Error PARSING triggered_id in activate_text_cell_selection: {triggered_id}. Error: {e}")
+         # Reset mode on parsing error
+         return {'active_component_id': None, 'active_param_index': None}
+    except Exception as e:
+         # Handle any other unexpected errors during the try block
+         print(f"Unexpected error in activate_text_cell_selection: {e}")
+         # Reset mode on unexpected error
+         return {'active_component_id': None, 'active_param_index': None}
+
+# --- Callback to Handle Cell Selection ---
+@callback(
+    Output(TEXT_FORMULA_STORE_ID, 'data', allow_duplicate=True),
+    Output(TEXT_SELECTION_STORE_ID, 'data', allow_duplicate=True), # Deactivate mode
+    Input(TEXT_TABLE_ID, 'active_cell'),
+    State(TEXT_SELECTION_STORE_ID, 'data'),
+    State(TEXT_FORMULA_STORE_ID, 'data'),
+    State(TEXT_TABLE_ID, 'data'), # Get current data view to map row index
+    prevent_initial_call=True
+)
+def handle_text_cell_selection(active_cell, selection_mode, formula_data, table_data):
+    active_comp_id = selection_mode.get('active_component_id')
+    active_param_idx = selection_mode.get('active_param_index')
+
+    print(f"Handle Cell Selection: active_cell={active_cell}, mode_comp={active_comp_id}, mode_param={active_param_idx}")
+
+
+    if not active_cell or active_comp_id is None or active_param_idx is None:
+        print("Skipping cell update (no active cell or mode)")
+        # If user clicks outside table while mode is active, deactivate mode
+        if active_comp_id is not None:
+             print("Deactivating cell selection mode (clicked outside).")
+             return dash.no_update, {'active_component_id': None, 'active_param_index': None}
+        return dash.no_update, dash.no_update
+
+
+    try:
+        row_index = active_cell['row']
+        col_id = active_cell['column_id']
+
+        if row_index >= len(table_data) or col_id not in original_text_cols_list:
+            print(f"Error: Invalid cell coordinates: Row={row_index}, Col={col_id}")
+            # Deactivate mode on error
+            return dash.no_update, {'active_component_id': None, 'active_param_index': None}
+
+        # Get value from the *currently displayed data* using row index
+        cell_value = table_data[row_index].get(col_id)
+        col_index = original_text_cols_list.index(col_id)
+        excel_ref = f"{get_excel_col_name(col_index)}{row_index + 1}"
+
+        cell_data = {'ref': excel_ref, 'value': cell_value}
+        print(f"Selected Cell Data: {cell_data}")
+
+        # Find the component and update the parameter
+        updated = False
+        for component in formula_data:
+            if component['id'] == active_comp_id:
+                # --- START MODIFY: Check param index type ---
+                if active_param_idx == 'cell': # Handle standalone cell value component
+                    if component['type'] == 'cell_value':
+                         print(f"Updating cell_value component {active_comp_id} with {cell_data}")
+                         component.update(cell_data) # Update ref and value directly
+                         updated = True
+                         break
+                    else: print(f"Error: Mode indicates 'cell' but component type is {component['type']}")
+                elif isinstance(active_param_idx, int): # Handle function parameter
+                    if component['type'] == 'function' and 0 <= active_param_idx < len(component['params']):
+                        print(f"Updating function component {active_comp_id}, param {active_param_idx} with {cell_data}")
+                        component['params'][active_param_idx] = cell_data
+                        updated = True
+                        break
+                    else: print(f"Error: Mode indicates function param but mismatch: Type={component['type']}, Index={active_param_idx}")
+                else: print(f"Error: Unknown active_param_idx type: {active_param_idx}")
+                # --- END MODIFY ---
+                break # Found component, stop searching
+        if updated:
+            # Deactivate selection mode and return updated formula
+            return formula_data, {'active_component_id': None, 'active_param_index': None}
+        else:
+            print("Error: Could not find component/param to update.")
+            # Deactivate mode even if update failed
+            return dash.no_update, {'active_component_id': None, 'active_param_index': None}
+
+    except Exception as e:
+        print(f"Error processing text cell selection: {e}")
+        # Deactivate mode on unexpected error
+        return dash.no_update, {'active_component_id': None, 'active_param_index': None}
+
+
+# --- Callback to Handle Input Changes (Numbers, Text, Literals) ---
+@callback(
+    Output(TEXT_FORMULA_STORE_ID, 'data', allow_duplicate=True),
+    # Use ALL pattern matching for dynamic inputs
+    Input({'type': 'text-num-input', 'index': ALL}, 'value'),
+    Input({'type': 'text-text-input', 'index': ALL}, 'value'),
+    Input({'type': 'text-literal-input', 'index': ALL}, 'value'),
+    State(TEXT_FORMULA_STORE_ID, 'data'),
+    prevent_initial_call=True
+)
+def handle_text_input_change(num_values, text_values, literal_values, formula_data):
+    triggered_id_dict = ctx.triggered_id
+    if not triggered_id_dict or not ctx.triggered or not ctx.triggered[0]['value'] is not None: # Ensure value is not None initially
+        # This check helps prevent updates on initial load where values might be None
+        # print("Skipping input change: No trigger or initial None value.")
+        return dash.no_update
+
+
+    triggered_type = triggered_id_dict.get('type')
+    triggered_index_str = triggered_id_dict.get('index') # This is comp_uuid-param_idx or comp_uuid for literal
+
+    # Find the input value that triggered the callback
+    triggered_input_prop = ctx.triggered[0]['prop_id'].split('.')[1] # 'value'
+    triggered_value = ctx.triggered[0]['value']
+
+    print(f"Input Changed: ID={triggered_id_dict}, Value={triggered_value}")
+
+
+    updated = False
+    try:
+        if triggered_type == 'text-literal-input':
+            component_id = triggered_index_str # For literals, index is just component_id
+            for component in formula_data:
+                if component['id'] == component_id and component['type'] == 'literal_string':
+                    # Only update if value actually changed
+                    if component.get('value') != triggered_value:
+                         component['value'] = triggered_value
+                         updated = True
+                         print(f"Updated Literal Component {component_id} value to {triggered_value}")
+                    break
+        elif triggered_type in ['text-num-input', 'text-text-input']:
+             # --- START FIX: Use rsplit for correct parsing ---
+             component_id, param_index_str = triggered_index_str.rsplit('-', 1)
+             param_index = int(param_index_str)
+             # --- END FIX ---
+
+             for component in formula_data:
+                 if component['id'] == component_id and component['type'] == 'function':
+                     if 0 <= param_index < len(component['params']):
+                         # Basic type check/conversion for numbers
+                         if triggered_type == 'text-num-input':
+                             try:
+                                 # Allow None if input is cleared
+                                 final_value = int(triggered_value) if triggered_value is not None else None
+                             except (ValueError, TypeError):
+                                 final_value = None # Keep as None if invalid
+                                 print(f"Warning: Invalid number input '{triggered_value}' for {component_id}-{param_index}. Setting param to None.")
+                         else: # text-text-input
+                            final_value = triggered_value
+
+                         # Only update if value actually changed
+                         if component['params'][param_index] != final_value:
+                             component['params'][param_index] = final_value
+                             updated = True
+                             print(f"Updated Func Component {component_id}, param {param_index} value to {final_value}")
+                         break
+                     else:
+                          print(f"Error: Param index {param_index} out of bounds for {component_id}")
+                          break # Stop searching component loop
+
+        if updated:
+            return formula_data
+        else:
+            # print(f"Input value for {triggered_id_dict} did not change or component not found.")
+            return dash.no_update
+
+    except (ValueError, IndexError) as e:
+         print(f"Error parsing ID or index for input {triggered_id_dict}. Error: {e}")
+         return dash.no_update
+    except Exception as e:
+        print(f"Error handling input change for {triggered_id_dict}: {e}")
+        return dash.no_update
+
+# --- Callback to Calculate and Display Final Result ---
+@callback(
+    Output(TEXT_OUTPUT_DISPLAY_ID, 'children', allow_duplicate=True),
+    Input(TEXT_FORMULA_STORE_ID, 'data'),
+    prevent_initial_call=True
+)
+def calculate_text_formula_result(formula_data):
+    if not formula_data:
+        return "Result: "
+
+    current_result = ""
+    error_occurred = False
+    calculation_performed = False # Still useful to track if anything produced output
+
+    print("\nCalculating Formula:")
+
+    for i, component in enumerate(formula_data):
+        comp_type = component['type']
+        # print(f"  Processing component {i}: {comp_type}") # Keep for debugging if needed
+
+        if error_occurred: continue # Stop calculation on first error
+
+        # --- Operator Check (no change needed here, checks i==0 and &&) ---
+        if comp_type == 'operator':
+            if i == 0 or formula_data[i-1]['type'] == 'operator':
+                error_occurred = True
+                current_result = "Error: Misplaced '&' operator."
+                print(f"  Error: {current_result}")
+            # If operator is last, loop ends, result is shown up to that point.
+            continue
+
+        # --- Check for missing '&' before value components ---
+        if i > 0 and formula_data[i-1]['type'] != 'operator':
+            error_occurred = True
+            # Make error message more general
+            current_result = f"Error: Missing '&' before {comp_type} component."
+            print(f"  Error: {current_result}")
+            continue # Stop processing if structure is wrong
+
+        # --- Process Value Components ---
+        value_to_add = None # Store the value this component contributes
+
+        if comp_type == 'literal_string':
+            value_to_add = component.get('value') # Already a string or None
+            if value_to_add is None: value_to_add = "" # Treat missing value as empty string
+            print(f"  Literal Value: '{value_to_add}'")
+
+        # --- NEW: Handle 'cell_value' ---
+        elif comp_type == 'cell_value':
+             cell_ref_val = component.get('value')
+             if cell_ref_val is None:
+                 # Cell not selected yet, skip it, don't treat as error
+                 print(f"  Skipping incomplete cell_value component (ID: {component['id']})")
+                 continue # Move to next component
+             else:
+                 value_to_add = cell_ref_val # Get the stored value
+                 print(f"  Cell Value: '{value_to_add}' from ref {component.get('ref')}")
+        # --- END NEW ---
+
+        elif comp_type == 'function':
+            func_name = component['name']
+            params = component['params']
+
+            if any(p is None for p in params):
+                # Function is incomplete, skip it, don't treat as error
+                print(f"  Skipping incomplete function '{func_name}' (ID: {component['id']})")
+                continue # Move to next component
+            else:
+                # Function is complete, try to evaluate
+                processed_params = []
+                param_error = False
+                # ... (param processing logic - unchanged) ...
+                for p_idx, p_val in enumerate(params):
+                    if isinstance(p_val, dict) and 'value' in p_val: processed_params.append(p_val['value'])
+                    elif p_val is not None: processed_params.append(p_val)
+                    else: param_error = True; break # Should not happen if initial check passed
+                if param_error:
+                     print(f"  Internal Error processing params for {func_name}")
+                     error_occurred=True; current_result="Error: Internal Param Error."; continue
+
+
+                try:
+                    result_value = ""
+                    # ... (call helper functions - unchanged) ...
+                    if func_name == 'LEFT': result_value = excel_left(*processed_params)
+                    elif func_name == 'RIGHT': result_value = excel_right(*processed_params)
+                    elif func_name == 'MID': result_value = excel_mid(*processed_params)
+                    elif func_name == 'SUBSTITUTE': result_value = excel_substitute(*processed_params)
+                    elif func_name == 'TEXTBEFORE': result_value = excel_textbefore(*processed_params)
+                    elif func_name == 'TEXTAFTER': result_value = excel_textafter(*processed_params)
+                    else: result_value = f"Error: Unknown function '{func_name}'"
+
+                    print(f"  Helper func '{func_name}' returned: '{result_value}'")
+
+                    if isinstance(result_value, str) and result_value.startswith("Error:"):
+                        # Helper function returned an error - THIS IS a calculation error
+                        error_occurred = True
+                        current_result = result_value # Display specific error
+                        print(f"  Function Helper Error: {current_result}")
+                    else:
+                        # Success! Store the result to be added
+                         value_to_add = result_value
+
+                except Exception as e:
+                    # Error DURING calculation (e.g., wrong args passed to helper)
+                    error_occurred = True
+                    current_result = f"Error calculating {func_name}: {e}"
+                    print(f"  Calculation Exception: {e}")
+
+        # --- Add the result if evaluation was successful ---
+        if value_to_add is not None and not error_occurred:
+             current_result += _to_str_safe(value_to_add)
+             calculation_performed = True
+             print(f"  OK. Current Result String: '{current_result}'")
+
+
+    # --- Final Output Formatting ---
+    if error_occurred:
+        # Display the specific error message caught during processing
+        final_display = current_result
+    elif not calculation_performed and not formula_data:
+         final_display = "Result: " # Initial state
+    elif not calculation_performed and formula_data:
+         # This might happen if formula is just '&' or incomplete functions/cells
+         final_display = "Result: [No output yet]"
+    else:
+        # Success or partial success
+        final_display = f"Result: {current_result}"
+
+    print(f"-> Final Calculation Output: {final_display}\n")
+    return final_display
 
 server = app.server
 

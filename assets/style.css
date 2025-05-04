@@ -50,6 +50,14 @@ hr.section-separator {
     vertical-align: middle;
 }
 
+.dynamic-text-box.active {
+    border: 2px solid #007bff; /* Standard blue focus */
+    font-weight: bold;
+    background-color: #cce5ff; /* Light blue background */
+    color: #004085; /* Darker blue text */
+    box-shadow: 0 0 3px rgba(0, 123, 255, 0.5); /* Optional glow */
+}
+
 /* Specific border colors */
 .dynamic-text-box-blue { border-color: darkblue; } /* INDEX related */
 .dynamic-text-box-red { border-color: red; }      /* MATCH related */
@@ -70,6 +78,22 @@ hr.section-separator {
     font-size: 1.1em;
     line-height: 2;
     margin-bottom: 10px;
+}
+
+/* Ensure inputs and spans align well too */
+.formula-display-interactive span,
+.formula-display-interactive button,
+.formula-display-interactive input {
+    vertical-align: middle; /* Align elements nicely */
+    margin-right: 3px; /* Add spacing */
+}
+
+/* Add specific styling for text formula input boxes if needed */
+.formula-display-interactive input[type=text],
+.formula-display-interactive input[type=number] {
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
 }
 
 /* Style spans used for formula coloring */

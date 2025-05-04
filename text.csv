@@ -1,8 +1,8 @@
-name, chamber, seat, party
-Nick Begich, House, AK-AL, Republican
-Dan Sullivan, Senate, AK-II, Republican
-Lisa Murkowski, Senate, AK-III, Republican
-Barry Moore, House, AL-1, Republican
-Shomari Figures, House, AL-2, Democrat
-Tommy Tuberville, Senate, AL-II, Republican
-Katie Britt, Senate, AL-III, Republican
+name, position, seat, party
+Nick Begich, Representative, AK-AL, Republican
+Dan Sullivan, Senator, AK, Republican
+Lisa Murkowski, Senator, AK, Republican
+Barry Moore, Representative, AL-1, Republican
+Shomari Figures, Representative, AL-2, Democrat
+Tommy Tuberville, Senator, AL, Republican
+Katie Britt, Senator, AL, Republican
