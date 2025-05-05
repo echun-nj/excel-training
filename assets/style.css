@@ -74,17 +74,16 @@ hr.section-separator {
     line-height: 2;
 }
 
-.formula-display-interactive { /* For MATCH/INDEX sections */
+.formula-display-interactive {
     font-size: 1.1em;
     line-height: 2;
     margin-bottom: 10px;
 }
 
-/* Ensure inputs and spans align well too */
 .formula-display-interactive span,
 .formula-display-interactive button,
 .formula-display-interactive input {
-    vertical-align: middle; /* Align elements nicely */
+    vertical-align: middle; 
     margin-right: 3px; /* Add spacing */
 }
 
@@ -169,11 +168,10 @@ hr.section-separator {
 
 /* Instruction text styling */
 .instruction-text {
-    font-style: italic;
     color: #555;
     margin-bottom: 15px;
     font-size: .9em;
-    padding: 3px;
+    padding: 5px;
     background-color: #efefef; /* Light grey background for instructions */
     border-left: 3px solid #aaa; /* Add a left border */
 }
@@ -278,4 +276,22 @@ hr.section-separator {
     max-width: 2000px;
     margin-left: auto;
     margin-right: auto;
+}
+
+/* Flexbox container for side-by-side exercises */
+.exercise-container-flex {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
+    gap: 20px; /* Space between the columns */
+    margin-bottom: 20px; /* Space below the exercise area */
+}
+
+/* Style for each exercise column */
+.exercise-column {
+    flex: 1; /* Each column tries to take equal space */
+    min-width: 350px; /* Minimum width before wrapping */
+    border: 1px solid #ddd; /* Optional border for visual separation */
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #ffffff; /* Optional background */
 }
