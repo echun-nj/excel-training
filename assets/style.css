@@ -5,7 +5,6 @@ body {
     font-family: sans-serif;
     margin: 25px;
     line-height: 1.5;
-    font-size: 1.05rem;
 }
 
 h1 {
@@ -25,7 +24,6 @@ code {
     padding: 0.1em 0.4em;
     border-radius: 3px;
     font-family: monospace;
-    font-size: 1.03rem;
 }
 
 hr.section-separator {
@@ -174,7 +172,7 @@ hr.section-separator {
     font-style: italic;
     color: #555;
     margin-bottom: 15px;
-    font-size: .95em;
+    font-size: .9em;
     padding: 5px;
     background-color: #efefef; /* Light grey background for instructions */
     border-left: 3px solid #aaa; /* Add a left border */
