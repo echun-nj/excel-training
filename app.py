@@ -240,9 +240,10 @@ app.layout = html.Div([
     # Stores for text tab
     dcc.Store(id=TEXT_FORMULA_STORE_ID, data=[]), # Holds list of formula component dicts
     dcc.Store(id=TEXT_SELECTION_STORE_ID, data={'active_component_id': None, 'active_param_index': None}), # Tracks which dynamic text button is active
-    dcc.Tabs(id="tab-selector", value='tab-index-match', className="tab--selector", children=[
-        dcc.Tab(label='Index Match', value='tab-index-match'),
+    dcc.Tabs(id="tab-selector", value='tab-text-strings', className="tab--selector", children=[
         dcc.Tab(label='Text String Basics', value='tab-text-strings'),
+        dcc.Tab(label='Conditional Logic', value='tab-conditional-logic'),
+        dcc.Tab(label='INDEX() and MATCH()', value='tab-index-match'),
     ]),
     html.Div(id='tab-content')
 ]) # End main layout Div
@@ -258,6 +259,8 @@ def render_content(tab):
     if tab == 'tab-index-match':
 
         return html.Div([
+
+            html.H2("INDEX() and MATCH()"),
 
             # === Stores for holding state ===
             dcc.Store(id='match-section-store', data={'active_button': None, 'array_col_index': None, 'array_excel_ref': None}),
@@ -348,7 +351,7 @@ def render_content(tab):
             # === INDEX/MATCH Tutorial ===
             # =======================================
             html.H3("Using INDEX() and MATCH() together"),
-            html.P(["Combine ", html.Span("INDEX", style={'color':'darkblue', 'fontWeight': 'bold'}), " and ", html.Span("MATCH", style={'color':'red', 'fontWeight': 'bold'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'darkblue'}), "."]),
+            html.P(["Combine ", html.Span("INDEX()", style={'color':'darkblue', 'fontWeight': 'bold'}), " and ", html.Span("MATCH()", style={'color':'red', 'fontWeight': 'bold'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'darkblue'}), "."]),
             html.P("Instructions:", style={'fontWeight': 'bold'}),
             html.Div(className="instruction-text", children=[
                 html.Ol([
@@ -425,7 +428,10 @@ def render_content(tab):
                 " Once you've built an INDEX/MATCH formula in Excel for one row, like this, you can drag the formula down and dynamically perform the same lookup for all other rows!"
             ])
         ])
-
+    elif tab == 'tab-conditional-logic':
+        return html.Div([
+            html.H2("Conditional Logic")
+        ])
     elif tab == 'tab-text-strings':
         return html.Div([
             html.H2("Text String Basics"),
