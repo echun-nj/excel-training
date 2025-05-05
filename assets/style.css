@@ -3,8 +3,9 @@
 /* --- General Styles --- */
 body {
     font-family: sans-serif;
-    margin: 20px;
+    margin: 25px;
     line-height: 1.5;
+    font-size: 1.05rem;
 }
 
 h1 {
@@ -24,6 +25,7 @@ code {
     padding: 0.1em 0.4em;
     border-radius: 3px;
     font-family: monospace;
+    font-size: 1.03rem;
 }
 
 hr.section-separator {
@@ -50,6 +52,14 @@ hr.section-separator {
     vertical-align: middle;
 }
 
+.dynamic-text-box.active {
+    border: 2px solid #007bff; /* Standard blue focus */
+    font-weight: bold;
+    background-color: #cce5ff; /* Light blue background */
+    color: #004085; /* Darker blue text */
+    box-shadow: 0 0 3px rgba(0, 123, 255, 0.5); /* Optional glow */
+}
+
 /* Specific border colors */
 .dynamic-text-box-blue { border-color: darkblue; } /* INDEX related */
 .dynamic-text-box-red { border-color: red; }      /* MATCH related */
@@ -70,6 +80,22 @@ hr.section-separator {
     font-size: 1.1em;
     line-height: 2;
     margin-bottom: 10px;
+}
+
+/* Ensure inputs and spans align well too */
+.formula-display-interactive span,
+.formula-display-interactive button,
+.formula-display-interactive input {
+    vertical-align: middle; /* Align elements nicely */
+    margin-right: 3px; /* Add spacing */
+}
+
+/* Add specific styling for text formula input boxes if needed */
+.formula-display-interactive input[type=text],
+.formula-display-interactive input[type=number] {
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
 }
 
 /* Style spans used for formula coloring */
@@ -148,7 +174,7 @@ hr.section-separator {
     font-style: italic;
     color: #555;
     margin-bottom: 15px;
-    font-size: 0.95em;
+    font-size: .95em;
     padding: 5px;
     background-color: #efefef; /* Light grey background for instructions */
     border-left: 3px solid #aaa; /* Add a left border */
@@ -181,9 +207,26 @@ hr.section-separator {
 }
 
 /* --- DataTables --- */
-.dash-spreadsheet { display: block; }
-.dash-header { background-color: #f0f0f0; }
+.data-table {
+    height: 200px;
+    overflow-y: auto;
+    width: 100%;
+    background-color: #e0f2f7; /* Example light blue */
+}
 
+.data-table .dash-spreadsheet { display: block; }
+.data-table .dash-header { background-color: #f0f0f0; }
+.data-table .dash-cell {
+    text-align: left;
+    padding: 5px;
+}
+.data-table .dash-header--title { /* Style the table header */
+    font-weight: bold;
+}
+
+/* --- Specific styles for INDEX/MATCH tables if needed--- */
+#im-table-a { background-color: #ffebeb; } /* Light red */
+#im-table-b { background-color: #e0f2f7; } /* Light blue */
 
 /* --- Result Display Boxes --- */
 .result-box {
@@ -197,3 +240,44 @@ hr.section-separator {
 }
 
 .index-match-result-container { margin-top: 20px; }
+
+/* --- Tab Navigation Styling --- */
+.tab--selector {
+    margin: 20px auto;
+    max-width: 800px;
+    justify-content: flex-start; 
+}
+
+.dash-tabs {
+    border-bottom: 2px solid #ccc;
+    font-size: 1.1em;
+}
+
+.tab--selector .dash-tab {
+    padding: 10px 25px;
+    margin-right: 10px;
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    font-weight: bold;
+    color: #333;
+}
+
+.tab--selector .dash-tab--selected {
+    background-color: white;
+    border-bottom: 2px solid white;
+    color: #000;
+}
+
+/* --- Space below tabs before content --- */
+#tab-content {
+    margin-top: 0px;
+    padding: 20px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 0 5px 5px 5px;
+    max-width: 2000px;
+    margin-left: auto;
+    margin-right: auto;
+}
