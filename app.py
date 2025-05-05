@@ -347,7 +347,7 @@ def render_content(tab):
             # =======================================
             # === INDEX/MATCH Tutorial ===
             # =======================================
-            html.H2("Using INDEX() and MATCH() together"),
+            html.H3("Using INDEX() and MATCH() together"),
             html.P(["Combine ", html.Span("INDEX", style={'color':'darkblue', 'fontWeight': 'bold'}), " and ", html.Span("MATCH", style={'color':'red', 'fontWeight': 'bold'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'darkblue'}), "."]),
             html.P("Instructions:", style={'fontWeight': 'bold'}),
             html.Div(className="instruction-text", children=[
@@ -429,7 +429,7 @@ def render_content(tab):
     elif tab == 'tab-text-strings':
         return html.Div([
             html.H2("Text String Basics"),
-            html.P("These core text functions help you extract, reshape, and combine strings in Excel. Click on a function to learn how it works and see real examples."),
+            html.P("These core text functions help you extract, reshape, and combine strings in Excel. Click a function to learn how it works and see real examples."),
             # --- Explanations ---
             html.Div(className="explanation-section", children=[
                 html.Details([
@@ -469,7 +469,15 @@ def render_content(tab):
                         html.Li([html.Code("delimeter"), ": The point before/after which you want to extract."]),
                         html.Li([html.Code("instance"), ": You can provide a third optional argument indicating which occurrence of the delimeter to use."])
                     ]),
-                    html.P(["Example: ",html.Code("TEXTBEFORE(\"National Journal\", \" \")")," returns \"National\" and ",html.Code("TEXTAFTER(\"National Journal\", \" \")", " returns \"Journal\"")])
+                    html.P([
+                        "Example: ",
+                        html.Code("TEXTBEFORE(\"National Journal\", \" \")"),
+                        " returns \"National\" and ",
+                        html.Code("TEXTAFTER(\"National Journal\", \" \")"),
+                        " returns \"Journal\". ",
+                        html.Code("TEXTBEFORE(\"National Journal Group\", \" \", 2)"),
+                        " returns \"Journal.\""
+                    ])
                 ]),
                 html.Details([
                     html.Summary([html.Code("&")]),
@@ -483,7 +491,7 @@ def render_content(tab):
                 html.H3(["Create your own formula!"]),
                 html.Div(className="instruction-text", children=[
                     html.Ul([
-                        html.Li(["Click a function button to add it to the ", html.Strong("Current Formula")," below. Then, fill out its arguments to see the ",html.Strong("result"),"."]),
+                        html.Li(["Click a function button to add it to the ", html.Strong("Current Formula"),". Then, fill out its arguments by selecting cells in the table below or typing input."]),
                         html.Li(["Use the ", html.Strong("\"\""), " button to add a text string."]),
                         html.Li(["Use the ", html.Strong("[cell]"), " button to add text directy from a cell in the table."])
                     ])
@@ -1130,6 +1138,8 @@ def update_formula_structure(add_btns_clicks, clear_btn_clicks, delete_btn_click
     Input(TEXT_SELECTION_STORE_ID, 'data'),
 )
 def render_formula_display(formula_data, selection_mode):
+    triggered_input = ctx.triggered[0]['prop_id'] if ctx.triggered else "No trigger"
+    print(f"\n>>> render_formula_display triggered by: {triggered_input}")
     if not formula_data: return ""
     display_elements = []
     active_component_id = selection_mode.get('active_component_id')
