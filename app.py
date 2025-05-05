@@ -4,24 +4,31 @@ import dash
 from dash import Dash, html, dcc, dash_table, callback, Output, Input, State, ctx, MATCH, ALL, ClientsideFunction
 import pandas as pd
 from pathlib import Path
-import uuid # Import uuid for unique IDs
-import math # For checking NaN
+import uuid
+import math
 
 # --- Constants ---
 SHEET_A_CSV = "sheetA.csv"
 SHEET_B_CSV = "sheetB.csv"
 MATCH_CSV = "match.csv"
 TEXT_CSV = "text.csv"  
-BIOGUIDE_COL = 'bioguide' # Column name for lookup key in sheet B
-SEAT_COL = "seat"       # Column name in match.csv
-NAME_COL = "name"       # Column name in match.csv
-HIGHLIGHT_COLOR_RED = '#ffcccc'  # Light Red
-HIGHLIGHT_COLOR_BLUE = '#cce5ff' # Light Blue
-TEXT_TABLE_ID = 'text-table' # ID for the text data table
+BIOGUIDE_COL = 'bioguide'
+SEAT_COL = "seat"
+NAME_COL = "name"
+HIGHLIGHT_COLOR_RED = '#ffcccc'
+HIGHLIGHT_COLOR_BLUE = '#cce5ff'
+TEXT_TABLE_ID = 'text-table'
 TEXT_FORMULA_STORE_ID = 'text-formula-store'
 TEXT_SELECTION_STORE_ID = 'text-selection-mode-store'
 TEXT_FORMULA_DISPLAY_ID = 'text-formula-display'
 TEXT_OUTPUT_DISPLAY_ID = 'text-output-display'
+CONDITIONAL_CSV = "conditional.csv"
+CONDITIONAL_TABLE_ID = 'conditional-table'
+
+# Parameter Store IDs
+IF_PARAM_STORE_PREFIX = 'if-param-store-'
+IFS_PARAM_STORE_PREFIX = 'ifs-param-store-'
+COND_SELECTION_STORE_ID = 'cond-selection-mode-store'
 
 # --- Helper Functions ---
 def get_excel_col_name(n: int) -> str:
@@ -128,6 +135,7 @@ def load_data():
     sheet_b_path = app_dir / SHEET_B_CSV
     match_path = app_dir / MATCH_CSV
     text_path = app_dir / TEXT_CSV 
+    conditional_path = app_dir / CONDITIONAL_CSV
 
     dataframes = {}
     errors = []
@@ -145,8 +153,10 @@ def load_data():
     try: dataframes['text'] = pd.read_csv(text_path)
     except Exception as e: errors.append(f"Error loading {TEXT_CSV}: {e}") 
 
+    try: dataframes['conditional'] = pd.read_csv(conditional_path) # <-- Load conditional
+    except Exception as e: errors.append(f"Error loading {CONDITIONAL_CSV}: {e}")
+
     if errors:
-        # Return default empty structures on error
         print("Errors during data loading:")
         for err in errors: print(f"- {err}")
         return ({'a': pd.DataFrame(), 'b': pd.DataFrame(), 'match': pd.DataFrame(), 'text': pd.DataFrame()}, # <--- ADDED 'text' default
@@ -156,12 +166,15 @@ def load_data():
     df_b = dataframes['b']
     df_match = dataframes['match']
     df_text = dataframes['text']
+    df_conditional = dataframes['conditional']
 
     # Store Original Column Lists
     original_a_cols = df_a.columns.tolist()
     original_b_cols = df_b.columns.tolist()
     original_match_cols = df_match.columns.tolist()
     original_text_cols = df_text.columns.tolist() 
+    original_conditional_cols = df_conditional.columns.tolist()
+
     bioguide_col_index = original_b_cols.index(BIOGUIDE_COL)
     sheetB_dict_local = {row[BIOGUIDE_COL]: row.tolist() for _, row in df_b.iterrows()}
     seatDict_local = {}
@@ -175,15 +188,15 @@ def load_data():
         nameDict_local[name_val] = row_num
         rowDict_local[row_num] = [seat_val, name_val]
     return (dataframes, sheetB_dict_local, seatDict_local, nameDict_local, rowDict_local,
-            bioguide_col_index, original_a_cols, original_b_cols, original_match_cols, original_text_cols) 
+            bioguide_col_index, original_a_cols, original_b_cols, original_match_cols, original_text_cols, original_conditional_cols) 
 
 
 # --- Load Data Globally ---
 try:
     # --- UNPACKING UPDATED ---
     (dfs, sheetB_dict, seatDict, nameDict, rowDict, BIOGUIDE_COL_INDEX_B,
-     original_a_cols_list, original_b_cols_list, original_match_cols_list, original_text_cols_list) = load_data()
-    df_a, df_b, df_match, df_text = dfs.get('a'), dfs.get('b'), dfs.get('match'), dfs.get('text') 
+        original_a_cols_list, original_b_cols_list, original_match_cols_list, original_text_cols_list, original_conditional_cols_list) = load_data() 
+    df_a, df_b, df_match, df_text, df_conditional = dfs.get('a'), dfs.get('b'), dfs.get('match'), dfs.get('text'), dfs.get('conditional', pd.DataFrame()) # <-- Get conditional df
 
     # Prepare data/columns for DataTables
     if not df_a.empty:
@@ -206,20 +219,27 @@ try:
         columns_text = [{"name": i, "id": i} for i in original_text_cols_list]
     else: data_text, columns_text = [{"Error": "Load Failed"}], [{"name": "Error", "id": "Error"}]
 
+    if not df_conditional.empty:
+        data_conditional = df_conditional.to_dict('records')
+        columns_conditional = [{"name": i, "id": i} for i in original_conditional_cols_list]
+    else:
+        data_conditional = [{"Error": "Load Failed"}]
+        columns_conditional = [{"name": "Error", "id": "Error"}]
+        original_conditional_cols_list = []
+
 except Exception as e:
     print(f"FATAL ERROR during data loading: {e}")
-    # Set defaults for app to load without crashing
-    df_a, df_b, df_match, df_text = pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame() # <--- ADDED df_text default
+    df_a, df_b, df_match, df_text, df_conditional = pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     error_cols = [{"name": "Error", "id": "Error"}]
     error_data = [{"Error": "Data Load Failed"}]
     data_a, columns_a = error_data, error_cols
     data_b, columns_b = error_data, error_cols
     data_match, columns_match = error_data, error_cols
     data_text, columns_text = error_data, error_cols 
+    data_conditional, columns_conditional = error_data, error_cols
     sheetB_dict, seatDict, nameDict, rowDict = {}, {}, {}, {}
     BIOGUIDE_COL_INDEX_B = -1
-    original_a_cols_list, original_b_cols_list, original_match_cols_list, original_text_cols_list = [], [], [], [] # <--- ADDED text default list
-
+    original_a_cols_list, original_b_cols_list, original_match_cols_list, original_text_cols_list, original_conditional_cols_list = [], [], [], [], []
 
 # --- Dash App Initialization ---
 app = Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
@@ -232,7 +252,8 @@ STYLE_CALC_BUTTON = {'marginTop': '10px'}
 STYLE_RESULT_BOX = {'marginTop': '10px'}
 STYLE_FORMULA_COMPONENT = {'marginRight': '5px', 'display': 'inline-block','fontFamily': 'monospace'}
 STYLE_DYNAMIC_BUTTON = {'margin': '0 2px', 'fontFamily': 'monospace'}
-
+STYLE_FORMULA_LINE = {'paddingLeft': '30px', 'fontFamily': 'monospace', 'display': 'block'} # Style for indented lines
+STYLE_FORMULA_CONTAINER = {'border': '1px solid #eee', 'padding': '10px', 'backgroundColor': '#f8f8f8', 'marginTop': '10px'}
 
 # --- App Layout ---
 app.layout = html.Div([
@@ -240,9 +261,24 @@ app.layout = html.Div([
     # Stores for text tab
     dcc.Store(id=TEXT_FORMULA_STORE_ID, data=[]), # Holds list of formula component dicts
     dcc.Store(id=TEXT_SELECTION_STORE_ID, data={'active_component_id': None, 'active_param_index': None}), # Tracks which dynamic text button is active
-    dcc.Tabs(id="tab-selector", value='tab-index-match', className="tab--selector", children=[
-        dcc.Tab(label='Index Match', value='tab-index-match'),
+    dcc.Store(id=COND_SELECTION_STORE_ID, data={'active_component_id': None}), # Store the ID of the active button
+    # IF parameter stores
+    dcc.Store(id=IF_PARAM_STORE_PREFIX + '1', data=None), # Stores {'ref': 'B1', 'value': 'House'} or None
+    dcc.Store(id=IF_PARAM_STORE_PREFIX + '2', data=None), # Stores "House" (string)
+    dcc.Store(id=IF_PARAM_STORE_PREFIX + '3', data=None), # Stores "Rep. "
+    dcc.Store(id=IF_PARAM_STORE_PREFIX + '4', data=None), # Stores "Sen. "
+    # IFS parameter stores
+    dcc.Store(id=IFS_PARAM_STORE_PREFIX + '1', data=None), # Stores {'ref': 'D1', 'value': 'Democrat'}
+    dcc.Store(id=IFS_PARAM_STORE_PREFIX + '2', data=None), # Stores "Democrat"
+    dcc.Store(id=IFS_PARAM_STORE_PREFIX + '3', data=None), # Stores "blue"
+    dcc.Store(id=IFS_PARAM_STORE_PREFIX + '4', data=None), # Stores {'ref': 'D1', 'value': 'Democrat'}
+    dcc.Store(id=IFS_PARAM_STORE_PREFIX + '5', data=None), # Stores "Republican"
+    dcc.Store(id=IFS_PARAM_STORE_PREFIX + '6', data=None), # Stores "red"
+    dcc.Store(id=IFS_PARAM_STORE_PREFIX + '7', data=None), # Stores "yellow"    
+    dcc.Tabs(id="tab-selector", value='tab-text-strings', className="tab--selector", children=[
         dcc.Tab(label='Text String Basics', value='tab-text-strings'),
+        dcc.Tab(label='Conditional Logic', value='tab-conditional-logic'),
+        dcc.Tab(label='INDEX() and MATCH()', value='tab-index-match'),
     ]),
     html.Div(id='tab-content')
 ]) # End main layout Div
@@ -258,6 +294,8 @@ def render_content(tab):
     if tab == 'tab-index-match':
 
         return html.Div([
+
+            html.H2("INDEX() and MATCH()"),
 
             # === Stores for holding state ===
             dcc.Store(id='match-section-store', data={'active_button': None, 'array_col_index': None, 'array_excel_ref': None}),
@@ -347,8 +385,8 @@ def render_content(tab):
             # =======================================
             # === INDEX/MATCH Tutorial ===
             # =======================================
-            html.H3("Using INDEX() and MATCH() together"),
-            html.P(["Combine ", html.Span("INDEX", style={'color':'darkblue', 'fontWeight': 'bold'}), " and ", html.Span("MATCH", style={'color':'red', 'fontWeight': 'bold'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'darkblue'}), "."]),
+            html.H3("Using MATCH() and INDEX() together"),
+            html.P(["Combine ", html.Span("MATCH()", style={'color':'red', 'fontWeight': 'bold'}), " and ", html.Span("INDEX()", style={'color':'darkblue', 'fontWeight': 'bold'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'darkblue'}), "."]),
             html.P("Instructions:", style={'fontWeight': 'bold'}),
             html.Div(className="instruction-text", children=[
                 html.Ol([
@@ -383,7 +421,8 @@ def render_content(tab):
                 html.Span(", 0)", className="formula-part-red"),
                 html.Span(")", className="formula-part-blue")
             ]),
-
+            html.Br(), # Add some space before the table
+            
             # --- Tables Side-by-Side ---
             html.Div(className="index-match-tables-container", children=[
                 # --- Sheet A Table ---
@@ -395,7 +434,6 @@ def render_content(tab):
                             row_selectable=False, column_selectable=False, page_action='none',
                             style_table=STYLE_DATATABLE, 
                             style_cell=STYLE_CELL_COMMON, style_header=STYLE_HEADER_COMMON,
-                            # Conditional style added via callback
                             style_data_conditional=[]
                         )])]),
                 # --- Sheet B Table ---
@@ -407,7 +445,6 @@ def render_content(tab):
                             row_selectable=False, column_selectable='single', selected_columns=[], page_action='none',
                             style_table=STYLE_DATATABLE,
                             style_cell={**STYLE_CELL_COMMON, 'minWidth': '100px'}, style_header=STYLE_HEADER_COMMON,
-                            # Conditional style added via callback
                             style_data_conditional=[]
                         )])])]),
 
@@ -425,11 +462,159 @@ def render_content(tab):
                 " Once you've built an INDEX/MATCH formula in Excel for one row, like this, you can drag the formula down and dynamically perform the same lookup for all other rows!"
             ])
         ])
+    
+    elif tab == 'tab-conditional-logic':
+        # --- NEW: Conditional Logic Layout ---
+        return html.Div([
+            html.H2("Conditional Logic"),
+            html.P("Conditional logic allows Excel formulas to make decisions based on whether certain conditions are TRUE or FALSE."),
+            html.P(["The simplest condition compares two values, e.g., ", html.Code("A1 = B1"), " or ", html.Code("A1 > 10"), ". This comparison returns either ", html.Code("TRUE"), " or ", html.Code("FALSE"), "."]),
+            html.P([html.Code("IF"), " and ", html.Code("IFS"), " are two functions that use these TRUE/FALSE results to return different outputs. Click a function to learn how it works!"]),
 
+            # --- Explanations ---
+             html.Div(className="explanation-section", children=[
+                 html.Details([
+                     html.Summary(html.Code("IF(logical_test, value_if_true, value_if_false)")),
+                     html.P("Checks whether a condition (logical_test) is met. Returns one value if TRUE, and another value if FALSE."),
+                     html.Ul([
+                         html.Li([html.Code("logical_test"), ": Any value or expression that can be evaluated to TRUE or FALSE."]),
+                         html.Li([html.Code("value_if_true"), ": The value returned if logical_test is TRUE."]),
+                         html.Li([html.Code("value_if_false"), ": The value returned if logical_test is FALSE."]),
+                     ]),
+                     html.P(["Example: ", html.Code("IF(A1=4, \"Four\", \"Not Four\")"), " returns \"Four\" if cell A1 contains the number 4, otherwise it returns \"Not Four\"."])
+                 ]),
+                 html.Details([
+                     html.Summary(html.Code("IFS(logical_test1, value_if_true1, logical_test2, value_if_true2, ...)")),
+                     html.P("Checks whether one or more conditions are met. Returns a value corresponding to the first TRUE condition."),
+                     html.P("IFS allows you to test multiple conditions without nesting multiple IF functions."),
+                     html.Ul([
+                         html.Li([html.Code("logical_test1"), ": The first condition to evaluate."]),
+                         html.Li([html.Code("value_if_true1"), ": The result returned if logical_test1 is TRUE."]),
+                         html.Li([html.Code("logical_test2, ..."), ": (Optional) Subsequent conditions."]),
+                         html.Li([html.Code("value_if_true2, ..."), ": (Optional) Results if subsequent conditions are TRUE."]),
+                         html.Li(["You can create a default 'catch-all' result for all inputs that don't meet any of the previous conditions by making the final ", html.Code("logical_test"), " simply ", html.Code("TRUE")]),
+                     ]),
+                     html.P(["Example: ", html.Code("IFS(A1>10, \"Strong Dem\", A1>5, \"Lean Dem\", TRUE, \"Likely Dem\")"), " checks A1. If it's >10, it returns \"Strong Dem\". If not, it checks if A1>5 and returns \"Lean Dem\" if TRUE. Otherwise, it returns \"Likely Dem\"."])
+                 ]),
+             ]), # End Explanations
+
+            html.Br(),
+
+            # --- START: Side-by-Side Container for Exercises ---
+            html.Div(className="exercise-container-flex", children=[ # New container
+
+                # --- IF Exercise ---
+                html.Div(className="exercise-section exercise-column", children=[ # Added exercise-column class
+                    html.H3("Understanding IF()"),
+
+                    html.Div(className="instruction-text", children=[
+                        "Complete the ", html.Code("IF()"), " formula to give House members the prefix ", html.Em("Rep.")," and Senate members the prefix ", html.Em("Sen."), 
+                        html.Strong(" Use row 1 of the table below.")
+                    ]),
+                    # Interactive IF Formula Display
+                    html.Div(id='if-formula-display-container', children=[
+                        html.Div([ # Line 1
+                            html.Span("IF("),
+                            html.Button("Click to select cell", id={'type': 'cond-cell-btn', 'formula': 'if', 'param': 1}, className='dynamic-text-box'),
+                            html.Span(" = "),
+                            html.Span('"'),
+                            dcc.Input(id={'type': 'cond-text-input', 'formula': 'if', 'param': 2}, type='text', placeholder='text', size='8', style={'margin': '0 2px'}),
+                            html.Span('",'),
+                        ]),
+                         html.Div([ # Line 2 (Indented)
+                             html.Span('"'),
+                             dcc.Input(id={'type': 'cond-text-input', 'formula': 'if', 'param': 3}, type='text', placeholder='text', size='6', style={'margin': '0 2px'}),
+                             html.Span('",'),
+                             html.Span(" & name & \" (\" & LEFT(party,1) & \"-\" & seat & \")\", "),
+                         ], style=STYLE_FORMULA_LINE),
+                         html.Div([ # Line 3 (Indented)
+                            html.Span('"'),
+                            dcc.Input(id={'type': 'cond-text-input', 'formula': 'if', 'param': 4}, type='text', placeholder='text', size='6', style={'margin': '0 2px'}),
+                            html.Span('",'),
+                            html.Span(" & name & \" (\" & LEFT(party,1) & \"-\" & TEXTBEFORE(seat,\"-\") & \")\""),
+                         ], style=STYLE_FORMULA_LINE),
+                         html.Div([ # Line 4
+                            html.Span(")"),
+                         ]),
+                    ]), # End formula container
+                    html.Button("Calculate Results for All Rows", id='calculate-if-button', n_clicks=0, style=STYLE_CALC_BUTTON),
+                    html.Button("Clear", id='clear-if-button', n_clicks=0, style={**STYLE_CALC_BUTTON, 'marginLeft': '10px'}),
+                    html.Div(id='if-results-display', children="Results:", className='result-box', style={**STYLE_RESULT_BOX, 'whiteSpace': 'pre-wrap'}),
+                ]), # End IF Exercise Div
+
+                # --- IFS Exercise ---
+                html.Div(className="exercise-section exercise-column", children=[ # Added exercise-column class
+                    html.H3("Understanding IFS()"),
+                    html.Div(className="instruction-text", children =[
+                        "Complete the ", html.Code("IFS()")," formula to return ", html.Em("red", style={'color': 'red'})," for Republicans, ", 
+                        html.Em("blue", style={'color': 'darkblue'})," for Democrats, and ", 
+                        html.Em("yellow", style={'color': '#8B8000'})," for Independents. ", html.Strong("Use row 1 of the table below.")
+                    ]),
+                    # Interactive IFS Formula Display
+                     html.Div(id='ifs-formula-display-container', children=[
+                        html.Div([ # Line 1
+                            html.Span("IFS("),
+                            html.Button("Click to select cell", id={'type': 'cond-cell-btn', 'formula': 'ifs', 'param': 1}, className='dynamic-text-box'),
+                            html.Span(" = "),
+                            html.Span('"'),
+                            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 2}, type='text', placeholder='text', size='10', style={'margin': '0 2px'}),
+                            html.Span('",'),
+                            html.Span('"'),
+                            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 3}, type='text', placeholder='text', size='6', style={'margin': '0 2px'}),
+                            html.Span('",'),
+                        ], style={'font-family':'monospace'}),
+                         html.Div([ # Line 2 (Indented)
+                            html.Button("Click to select cell", id={'type': 'cond-cell-btn', 'formula': 'ifs', 'param': 4}, className='dynamic-text-box'),
+                            html.Span(" = "),
+                            html.Span('"'),
+                            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 5}, type='text', placeholder='text', size='10', style={'margin': '0 2px'}),
+                            html.Span('",'),
+                            html.Span('"'),
+                            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 6}, type='text', placeholder='text', size='6', style={'margin': '0 2px'}),
+                            html.Span('",'),
+                        ], style=STYLE_FORMULA_LINE),
+                         html.Div([ # Line 3 (Indented)
+                            html.Span("TRUE, "),
+                            html.Span('"'),
+                            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 7}, type='text', placeholder='text', size='8', style={'margin': '0 2px'}),
+                            html.Span('"'),
+                         ], style=STYLE_FORMULA_LINE),
+                         html.Div([ # Line 4
+                            html.Span(")"),
+                         ]),
+                    ]), # End formula container
+                    html.Button("Calculate Results for All Rows", id='calculate-ifs-button', n_clicks=0, style=STYLE_CALC_BUTTON),
+                    html.Button("Clear", id='clear-ifs-button', n_clicks=0, style={**STYLE_CALC_BUTTON, 'marginLeft': '10px'}),
+                    html.Div(id='ifs-results-display', children="Results:", className='result-box', style={**STYLE_RESULT_BOX, 'whiteSpace': 'pre-wrap'}),
+                ]), # End IFS Exercise Div
+
+            ]), # --- END: Side-by-Side Container ---
+
+            # --- Data Table ---
+            dash_table.DataTable(
+                id=CONDITIONAL_TABLE_ID,
+                columns=columns_conditional,
+                data=data_conditional,
+                cell_selectable=True, # Allow cell selection
+                row_selectable=False,
+                column_selectable=False,
+                page_action='none',
+                fixed_rows={'headers': True},
+                style_table=STYLE_DATATABLE,
+                style_cell=STYLE_CELL_COMMON,
+                style_header=STYLE_HEADER_COMMON,
+                style_data_conditional=[], # For highlighting
+                 tooltip_data=[{column: {'value': str(value), 'type': 'markdown'}
+                               for column, value in row.items()}
+                              for row in data_conditional],
+                 tooltip_duration=None,
+            ),
+        ]) # End Conditional Logic Div
+    
     elif tab == 'tab-text-strings':
         return html.Div([
             html.H2("Text String Basics"),
-            html.P("These core text functions help you extract, reshape, and combine strings in Excel. Click a function to learn how it works and see real examples."),
+            html.P("These core text functions help you extract, reshape, and combine strings in Excel. Click a function to learn how it works!"),
             # --- Explanations ---
             html.Div(className="explanation-section", children=[
                 html.Details([
@@ -474,10 +659,9 @@ def render_content(tab):
                         html.Code("TEXTBEFORE(\"National Journal\", \" \")"),
                         " returns \"National\" and ",
                         html.Code("TEXTAFTER(\"National Journal\", \" \")"),
-                        " returns \"Journal\". ",
-                        html.Code("TEXTBEFORE(\"National Journal Group\", \" \", 2)"),
-                        " returns \"Journal.\""
-                    ])
+                        " returns \"Journal\". "
+                    ]),
+                    html.P([html.Code("TEXTBEFORE(\"National Journal Group\", \" \", 2)")," returns \"Journal.\""])
                 ]),
                 html.Details([
                     html.Summary([html.Code("&")]),
@@ -1010,6 +1194,459 @@ def style_selected_im_b_columns(index_param_data, match_param_2_data):
 
     return styles
 
+# ==================================
+# === CONDITIONAL LOGIC CALLBACKS ===
+# ==================================
+
+# --- Callback to Activate Cell Selection Mode for Conditional Tab ---
+@callback(
+    Output(COND_SELECTION_STORE_ID, 'data'),
+    Input({'type': 'cond-cell-btn', 'formula': ALL, 'param': ALL}, 'n_clicks'), # Pattern for IF/IFS buttons
+    State(COND_SELECTION_STORE_ID, 'data'),
+    prevent_initial_call=True,
+)
+def activate_conditional_cell_selection(buttons_n_clicks, current_mode):
+    triggered_id = ctx.triggered_id
+    if not triggered_id or not ctx.triggered or ctx.triggered[0]['value'] is None or ctx.triggered[0]['value'] == 0:
+        return dash.no_update
+    print(f"  -> Setting active mode: {triggered_id}")
+    return {'active_component_id': triggered_id}
+
+# --- Callback to Handle Cell Selection for Conditional Tab ---
+@callback(
+    Output(IF_PARAM_STORE_PREFIX + '1', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '1', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '4', 'data', allow_duplicate=True),
+    Output(COND_SELECTION_STORE_ID, 'data', allow_duplicate=True),
+    Input(CONDITIONAL_TABLE_ID, 'active_cell'),
+    State(COND_SELECTION_STORE_ID, 'data'),
+    prevent_initial_call=True
+)
+def handle_conditional_cell_selection(active_cell, selection_mode):
+    active_button_id = selection_mode.get('active_component_id')
+
+    print(f"Handle Conditional Cell Selection: active_cell={active_cell}, mode_button_id={active_button_id}")
+    no_update_list = [dash.no_update] * 3
+    reset_mode = {'active_component_id': None}
+
+    if not active_cell or not active_button_id:
+        if active_button_id: return no_update_list + [reset_mode]
+        return dash.no_update
+
+    if active_cell['row'] != 0:
+        print(f"Ignoring cell selection: Row {active_cell['row']} is not the first row (0).")
+        return no_update_list + [reset_mode]
+
+    try:
+        row_index = active_cell['row']
+        col_id = active_cell['column_id'] # This is the actual column name (e.g., 'chamber')
+
+        if col_id not in original_conditional_cols_list:
+            print(f"Error: Column '{col_id}' not found.")
+            return no_update_list + [reset_mode]
+
+        cell_value = df_conditional.loc[row_index, col_id]
+        col_index = original_conditional_cols_list.index(col_id)
+        excel_ref = f"{get_excel_col_name(col_index)}{row_index + 1}"
+        cell_data = {'ref': excel_ref, 'value': cell_value, 'column_id': col_id}
+        print(f"Selected Cell Data (Row 0): {cell_data}")
+
+        target_store_outputs = list(no_update_list)
+        formula_type = active_button_id.get('formula')
+        param_index = active_button_id.get('param')
+
+        # Determine which store to update
+        if formula_type == 'if' and param_index == 1:
+             target_store_outputs[0] = cell_data
+        elif formula_type == 'ifs' and (param_index == 1 or param_index == 4):
+             # Update BOTH IFS parameter stores (index 1 and 2 in the output list)
+             target_store_outputs[1] = cell_data # Update IFS Param 1 store
+             target_store_outputs[2] = cell_data # Update IFS Param 4 store
+             print(f"Updating stores for ifs-param-1 AND ifs-param-4 with {cell_data}")
+        else:
+             print(f"Warning: Active button ID {active_button_id} doesn't match.")
+             return no_update_list + [reset_mode]
+
+        print(f"Updating store for {formula_type}-param-{param_index} with {cell_data}")
+        return target_store_outputs + [reset_mode]
+
+    except Exception as e:
+        print(f"Error processing conditional cell selection: {e}")
+        return no_update_list + [reset_mode]
+
+# --- Callback to Handle Input Changes for Conditional Tab ---
+@callback(
+    # Update the *correct* parameter store based on the input's ID
+    # List all possible outputs
+    Output(IF_PARAM_STORE_PREFIX + '2', 'data', allow_duplicate=True),
+    Output(IF_PARAM_STORE_PREFIX + '3', 'data', allow_duplicate=True),
+    Output(IF_PARAM_STORE_PREFIX + '4', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '2', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '3', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '5', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '6', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '7', 'data', allow_duplicate=True),
+    # Trigger based on any conditional text input changing
+    Input({'type': 'cond-text-input', 'formula': ALL, 'param': ALL}, 'value'),
+    # Prevent updating stores that weren't the trigger
+    prevent_initial_call=True
+)
+def handle_conditional_input_change(input_values): # input_values is list corresponding to ALL inputs
+    triggered_id = ctx.triggered_id
+    if not triggered_id:
+        return [dash.no_update] * 8 # Total number of output stores
+
+    triggered_value = ctx.triggered[0]['value']
+    print(f"Conditional Input Changed: ID={triggered_id}, Value={triggered_value}")
+
+    # Initialize all outputs to no_update
+    outputs = [dash.no_update] * 8
+
+    formula_type = triggered_id.get('formula')
+    param_index = triggered_id.get('param')
+
+    # Map formula type and param index to the correct output index
+    output_map = {
+        ('if', 2): 0, ('if', 3): 1, ('if', 4): 2,
+        ('ifs', 2): 3, ('ifs', 3): 4, ('ifs', 5): 5, ('ifs', 6): 6, ('ifs', 7): 7,
+    }
+
+    output_index = output_map.get((formula_type, param_index))
+
+    if output_index is not None:
+        print(f"  -> Updating output index {output_index} for store {formula_type}-param-{param_index}")
+        outputs[output_index] = triggered_value # Update the specific output
+    else:
+        print(f"Warning: Could not map triggered ID {triggered_id} to an output store.")
+
+    return outputs
+
+# --- UPDATED Callback to Render the Conditional Logic Formula Displays ---
+@callback(
+    # Output the children of the IF and IFS formula containers
+    Output('if-formula-display-container', 'children'), # ADD AN ID TO THE IF FORMULA DIV
+    Output('ifs-formula-display-container', 'children'), # ADD AN ID TO THE IFS FORMULA DIV
+    # Trigger based on stores changing
+    Input(IF_PARAM_STORE_PREFIX + '1', 'data'),
+    Input(IF_PARAM_STORE_PREFIX + '2', 'data'),
+    Input(IF_PARAM_STORE_PREFIX + '3', 'data'),
+    Input(IF_PARAM_STORE_PREFIX + '4', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '1', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '2', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '3', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '4', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '5', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '6', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '7', 'data'),
+    Input(COND_SELECTION_STORE_ID, 'data') # Also trigger on mode change for styling
+)
+def render_conditional_formulas(if_p1, if_p2, if_p3, if_p4, ifs_p1, ifs_p2, ifs_p3, ifs_p4, ifs_p5, ifs_p6, ifs_p7, selection_mode):
+
+    active_component_id = selection_mode.get('active_component_id') # This is the full button ID dict
+    print(f"\n>>> Rendering Conditional Formulas. Active Mode: {active_component_id}")
+
+    # Helper to get button text from stored cell data
+    def get_button_text(cell_data):
+        if isinstance(cell_data, dict) and 'ref' in cell_data and cell_data['ref'] is not None:
+            return cell_data['ref']
+        return "Click to select cell"
+
+    # Helper to check if a button is active
+    def is_active(button_id_dict):
+        return active_component_id == button_id_dict
+
+    # --- Build IF Formula Display ---
+    if_button_id_1 = {'type': 'cond-cell-btn', 'formula': 'if', 'param': 1}
+    if_display = [
+        html.Div([ # Line 1
+            html.Span("IF("),
+            html.Button(
+                get_button_text(if_p1),
+                id=if_button_id_1,
+                className='dynamic-text-box' + (' active' if is_active(if_button_id_1) else ''),
+                style=STYLE_DYNAMIC_BUTTON),
+            html.Span(" = "),
+            html.Span('"'),
+            dcc.Input(id={'type': 'cond-text-input', 'formula': 'if', 'param': 2}, type='text', placeholder='text', value=if_p2, size='8', style={'margin': '0 2px'}),
+            html.Span('",'),
+        ], style={'font-family':'monospace'}),
+         html.Div([ # Line 2 (Indented)
+             html.Span('"'),
+             dcc.Input(id={'type': 'cond-text-input', 'formula': 'if', 'param': 3}, type='text', placeholder='text', value=if_p3, size='6', style={'margin': '0 2px'}),
+             html.Span('",'),
+             html.Span(" & name & \" (\" & LEFT(party,1) & \"-\" & seat & \")\", "),
+         ], style=STYLE_FORMULA_LINE),
+         html.Div([ # Line 3 (Indented)
+             html.Span('"'),
+            dcc.Input(id={'type': 'cond-text-input', 'formula': 'if', 'param': 4}, type='text', placeholder='text', value=if_p4, size='6', style={'margin': '0 2px'}),
+            html.Span('",'),
+            html.Span(" & name & \" (\" & LEFT(party,1) & \"-\" & TEXTBEFORE(seat,\"-\") & \")\""),
+         ], style=STYLE_FORMULA_LINE),
+         html.Div([ html.Span(")") ], style={'font-family':'monospace'}),
+    ]
+
+    # --- Build IFS Formula Display ---
+    ifs_button_id_1 = {'type': 'cond-cell-btn', 'formula': 'ifs', 'param': 1}
+    ifs_button_id_4 = {'type': 'cond-cell-btn', 'formula': 'ifs', 'param': 4}
+    ifs_display = [
+        html.Div([ # Line 1
+            html.Span("IFS("),
+            html.Button(
+                get_button_text(ifs_p1),
+                id=ifs_button_id_1,
+                className='dynamic-text-box' + (' active' if is_active(ifs_button_id_1) else ''),
+                style=STYLE_DYNAMIC_BUTTON),
+            html.Span(" = "),
+            html.Span('"'),
+            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 2}, type='text', placeholder='text', value=ifs_p2, size='10', style={'margin': '0 2px'}),
+            html.Span('",'),
+            html.Span('"'),
+            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 3}, type='text', placeholder='text', value=ifs_p3, size='6', style={'margin': '0 2px'}),
+            html.Span('",'),
+        ], style={'font-family':'monospace'}),
+         html.Div([ # Line 2 (Indented)
+            html.Button(
+                get_button_text(ifs_p4),
+                id=ifs_button_id_4,
+                className='dynamic-text-box' + (' active' if is_active(ifs_button_id_4) else ''),
+                style=STYLE_DYNAMIC_BUTTON),
+            html.Span(" = "),
+            html.Span('"'),
+            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 5}, type='text', placeholder='text', value=ifs_p5, size='10', style={'margin': '0 2px'}),
+            html.Span('",'),
+            html.Span('"'),
+            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 6}, type='text', placeholder='text', value=ifs_p6, size='6', style={'margin': '0 2px'}),
+            html.Span('",'),
+        ], style=STYLE_FORMULA_LINE),
+         html.Div([ # Line 3 (Indented)
+            html.Span("TRUE, "),
+            html.Span('"'),
+            dcc.Input(id={'type': 'cond-text-input', 'formula': 'ifs', 'param': 7}, type='text', placeholder='text', value=ifs_p7, size='8', style={'margin': '0 2px'}),
+            html.Span('"'),
+         ], style=STYLE_FORMULA_LINE),
+         html.Div([ html.Span(")") ], style={'font-family':'monospace'}),
+    ]
+
+    return if_display, ifs_display
+
+# --- Callback to Clear IF/IFS Formulas ---
+@callback(
+    # Outputs for IF stores
+    Output(IF_PARAM_STORE_PREFIX + '1', 'data', allow_duplicate=True),
+    Output(IF_PARAM_STORE_PREFIX + '2', 'data', allow_duplicate=True),
+    Output(IF_PARAM_STORE_PREFIX + '3', 'data', allow_duplicate=True),
+    Output(IF_PARAM_STORE_PREFIX + '4', 'data', allow_duplicate=True),
+    # Outputs for IFS stores
+    Output(IFS_PARAM_STORE_PREFIX + '1', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '2', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '3', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '4', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '5', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '6', 'data', allow_duplicate=True),
+    Output(IFS_PARAM_STORE_PREFIX + '7', 'data', allow_duplicate=True),
+    # Outputs for results displays
+    Output('if-results-display', 'children', allow_duplicate=True),
+    Output('ifs-results-display', 'children', allow_duplicate=True),
+    # Inputs from clear buttons
+    Input('clear-if-button', 'n_clicks'),
+    Input('clear-ifs-button', 'n_clicks'),
+    prevent_initial_call=True
+)
+def clear_conditional_formulas(if_clear_clicks, ifs_clear_clicks):
+    triggered_id = ctx.triggered_id
+
+    # Initialize all outputs to no_update
+    if_outputs = [dash.no_update] * 4
+    ifs_outputs = [dash.no_update] * 7
+    if_results_out = dash.no_update
+    ifs_results_out = dash.no_update
+
+    if triggered_id == 'clear-if-button' and if_clear_clicks > 0:
+        print("Clearing IF formula parameters.")
+        if_outputs = [None] * 4 # Set all IF stores to None
+        if_results_out = "Results:" # Reset display
+    elif triggered_id == 'clear-ifs-button' and ifs_clear_clicks > 0:
+        print("Clearing IFS formula parameters.")
+        ifs_outputs = [None] * 7 # Set all IFS stores to None
+        ifs_results_out = "Results:" # Reset display
+
+    # Combine outputs in the correct order
+    all_outputs = if_outputs + ifs_outputs + [if_results_out, ifs_results_out]
+    return tuple(all_outputs)
+
+# --- Callback to Calculate IF Results ---
+@callback(
+    Output('if-results-display', 'children'),
+    Input('calculate-if-button', 'n_clicks'),
+    State(IF_PARAM_STORE_PREFIX + '1', 'data'), # Cell data: {'ref': 'B1', 'value': 'House', 'column_id': 'chamber'}
+    State(IF_PARAM_STORE_PREFIX + '2', 'data'), # Check value: "House"
+    State(IF_PARAM_STORE_PREFIX + '3', 'data'), # True prefix: "Rep. "
+    State(IF_PARAM_STORE_PREFIX + '4', 'data'), # False prefix: "Sen. "
+    prevent_initial_call=True
+)
+def calculate_if_results(n_clicks, param1_data, param2_val, param3_val, param4_val):
+    print("Calculating IF Results...")
+    print(f"  Param 1 (Cell Data): {param1_data}")
+    print(f"  Param 2 (Check Val): {param2_val}")
+    print(f"  Param 3 (True Prefix): {param3_val}")
+    print(f"  Param 4 (False Prefix): {param4_val}")
+
+    if not all([param1_data, param2_val is not None, param3_val is not None, param4_val is not None]):
+        return "Results: Error - Please fill in all formula parts using the first row."
+    # --- VALIDATE DYNAMIC COLUMN INFO ---
+    if not isinstance(param1_data, dict) or 'value' not in param1_data or 'column_id' not in param1_data:
+         return "Results: Error - Please select the cell for the first condition."
+
+    logical_test_column = param1_data['column_id'] # Get the actual column name ('chamber')
+    print(f"  --> Using column '{logical_test_column}' for comparison.")
+    # --- END VALIDATE ---
+
+    results_list = ["Results:"]
+    try:
+        for index, row in df_conditional.iterrows():
+            # --- USE DYNAMIC COLUMN ---
+            value_to_check = row[logical_test_column]
+            # --- END USE ---
+            name = row['name']
+            party = row['party']
+            seat = row['seat']
+
+            # Perform the IF logic
+            # --- COMPARE AGAINST DYNAMIC COLUMN ---
+            if str(value_to_check) == str(param2_val):
+            # --- END COMPARE ---
+                prefix = param3_val
+                party_initial = excel_left(party, 1)
+                seat_info = seat # Use full seat for House
+                result_str = f"{prefix}{name} ({party_initial}-{seat_info})"
+            else:
+                prefix = param4_val
+                party_initial = excel_left(party, 1)
+                seat_info = excel_textbefore(seat, "-")
+                if "Error:" in str(seat_info): seat_info = seat
+                result_str = f"{prefix}{name} ({party_initial}-{seat_info})"
+
+            results_list.append(f"{index + 1}. {result_str}")
+
+        return "\n".join(results_list)
+
+    except KeyError:
+         # Handle case where the selected column doesn't exist in later rows (shouldn't happen with CSV)
+         print(f"Error: Column '{logical_test_column}' not found in DataFrame row.")
+         return f"Results: Error - Column '{logical_test_column}' missing in data."
+    except Exception as e:
+        print(f"Error during IF calculation: {e}")
+        return f"Results: Error during calculation - {e}"
+
+# --- Callback to Calculate IFS Results ---
+@callback(
+    Output('ifs-results-display', 'children'),
+    Input('calculate-ifs-button', 'n_clicks'),
+    State(IFS_PARAM_STORE_PREFIX + '1', 'data'), # Cell data {'ref': 'D1', 'value': 'Democrat'}
+    State(IFS_PARAM_STORE_PREFIX + '2', 'data'), # Check value "Democrat"
+    State(IFS_PARAM_STORE_PREFIX + '3', 'data'), # Result value "blue"
+    State(IFS_PARAM_STORE_PREFIX + '4', 'data'), # Cell data {'ref': 'D1', 'value': 'Democrat'}
+    State(IFS_PARAM_STORE_PREFIX + '5', 'data'), # Check value "Republican"
+    State(IFS_PARAM_STORE_PREFIX + '6', 'data'), # Result value "red"
+    State(IFS_PARAM_STORE_PREFIX + '7', 'data'), # Default value "yellow"
+    prevent_initial_call=True
+)
+def calculate_ifs_results(n_clicks, p1, p2, p3, p4, p5, p6, p7):
+    print("Calculating IFS Results...")
+    print(f"  P1 (Cell1 Data): {p1}")
+    print(f"  P2 (Check1 Val): {p2}")
+    print(f"  P3 (Result1 Val): {p3}")
+    print(f"  P4 (Cell2 Data): {p4}") # Note: P1 and P4 check the same logical column based on layout
+    print(f"  P5 (Check2 Val): {p5}")
+    print(f"  P6 (Result2 Val): {p6}")
+    print(f"  P7 (Default Val): {p7}")
+
+     # --- Input Validation ---
+    # Check if all necessary parameters are filled
+    if not all([p1, p2 is not None, p3 is not None, p4, p5 is not None, p6 is not None, p7 is not None]):
+        return "Results: Error - Please fill in all formula parts."
+    # Check if cell selections were made correctly
+    if not isinstance(p1, dict) or 'value' not in p1 or 'column_id' not in p1:
+         return "Results: Error - Please fill in all formula parts."
+    
+    logical_test_column = p1['column_id'] # Get the actual column name (e.g., 'party')
+    print(f"  --> Using column '{logical_test_column}' for comparisons.")
+    
+    results_list = ["Results:"]
+    try:
+        for index, row in df_conditional.iterrows():
+            value_to_check = row[logical_test_column]
+
+            # Apply IFS logic using stored parameters
+
+            if str(value_to_check) == str(p2):
+                result_val = p3
+            elif str(value_to_check) == str(p5):
+                result_val = p6
+            else:
+                result_val = p7
+
+            results_list.append(f"{index + 1}. {result_val}")
+
+        return "\n".join(results_list)
+
+    except KeyError:
+         print(f"Error: Column '{logical_test_column}' not found in DataFrame row.")
+         return f"Results: Error - Column '{logical_test_column}' missing in data."
+    except Exception as e:
+        print(f"Error during IFS calculation: {e}")
+        return f"Results: Error during calculation - {e}"
+
+
+# --- Callback to Highlight Selected Cell in Conditional Table ---
+@callback(
+    Output(CONDITIONAL_TABLE_ID, 'style_data_conditional'),
+    Input(COND_SELECTION_STORE_ID, 'data'),
+    Input(IF_PARAM_STORE_PREFIX + '1', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '1', 'data'),
+    Input(IFS_PARAM_STORE_PREFIX + '4', 'data'),
+)
+def style_selected_conditional_cell(selection_mode, if_p1, ifs_p1, ifs_p4):
+    styles = []
+    active_button_id = selection_mode.get('active_component_id')
+
+    # Highlight cell being selected (if mode is active)
+    if active_button_id:
+        pass
+
+    # Combine all parameters that hold cell references
+    cell_params = [if_p1, ifs_p1, ifs_p4]
+
+    for cell_info in cell_params:
+        if isinstance(cell_info, dict) and 'ref' in cell_info:
+            excel_ref = cell_info.get('ref') # e.g., "B1" or "D1"
+            if excel_ref: # Ensure ref is not None or empty
+                 try:
+                     col_str = ""
+                     row_str = ""
+                     for char in excel_ref:
+                         if char.isalpha(): col_str += char
+                         elif char.isdigit(): row_str += char
+
+                     if col_str and row_str:
+                         col_index = 0
+                         for char in col_str: col_index = col_index * 26 + (ord(char.upper()) - ord('A'))
+                         row_index = int(row_str) - 1
+
+                         if 0 <= col_index < len(original_conditional_cols_list) and row_index == 0: # Highlight only row 0
+                             col_id = original_conditional_cols_list[col_index]
+                             styles.append({
+                                 'if': {
+                                     'column_id': col_id,
+                                     'row_index': row_index
+                                 },
+                                 'backgroundColor': HIGHLIGHT_COLOR_BLUE, # Use consistent highlight
+                                 'color': 'black'
+                             })
+                 except Exception as e:
+                     print(f"Error parsing excel ref '{excel_ref}' for styling: {e}")
+
+    return styles
 
 # ==================================
 # === TEXT STRING CALLBACKS      ===
