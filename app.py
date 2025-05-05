@@ -44,7 +44,7 @@ def excel_left(text: str, num_chars: int) -> str:
     """Mimics Excel's LEFT function with error handling."""
     text_str = _to_str_safe(text)
     try:
-        num = int(num_chars) + 1
+        num = int(num_chars)
         if num < 0:
             return "Error: Number of characters cannot be negative."
         return text_str[:num]
@@ -57,7 +57,7 @@ def excel_right(text: str, num_chars: int) -> str:
     """Mimics Excel's RIGHT function with error handling."""
     text_str = _to_str_safe(text)
     try:
-        num = int(num_chars) + 1
+        num = int(num_chars)
         if num < 0:
             return "Error: Number of characters cannot be negative."
         return text_str[-num:] if num > 0 else ""
@@ -230,8 +230,8 @@ STYLE_CELL_COMMON = {'textAlign': 'left', 'padding': '5px'}
 STYLE_HEADER_COMMON = {'fontWeight': 'bold'}
 STYLE_CALC_BUTTON = {'marginTop': '10px'}
 STYLE_RESULT_BOX = {'marginTop': '10px'}
-STYLE_FORMULA_COMPONENT = {'marginRight': '5px', 'display': 'inline-block'} # Style for formula parts
-STYLE_DYNAMIC_BUTTON = {'margin': '0 2px'} # Style for the dynamic cell buttons
+STYLE_FORMULA_COMPONENT = {'marginRight': '5px', 'display': 'inline-block','fontFamily': 'monospace'}
+STYLE_DYNAMIC_BUTTON = {'margin': '0 2px', 'fontFamily': 'monospace'}
 
 
 # --- App Layout ---
@@ -240,9 +240,9 @@ app.layout = html.Div([
     # Stores for text tab
     dcc.Store(id=TEXT_FORMULA_STORE_ID, data=[]), # Holds list of formula component dicts
     dcc.Store(id=TEXT_SELECTION_STORE_ID, data={'active_component_id': None, 'active_param_index': None}), # Tracks which dynamic text button is active
-    dcc.Tabs(id="tab-selector", value='tab-text-strings', className="tab--selector", children=[
-        dcc.Tab(label='Text String Basics', value='tab-text-strings'),
+    dcc.Tabs(id="tab-selector", value='tab-index-match', className="tab--selector", children=[
         dcc.Tab(label='Index Match', value='tab-index-match'),
+        dcc.Tab(label='Text String Basics', value='tab-text-strings'),
     ]),
     html.Div(id='tab-content')
 ]) # End main layout Div
@@ -274,22 +274,22 @@ def render_content(tab):
                 # --- MATCH Section ---
                 html.Div(className="tutorial-section tutorial-section-match", children=[
                     html.H3("Understanding MATCH()"),
-                    html.P([html.Code("MATCH(VALUE, ARRAY, TYPE)"), " finds the ", html.Strong("position"), " of a ", html.Strong("value"), "."]),
+                    html.P([html.Code("MATCH(value, array, type)"), " finds the ", html.Strong("position"), " of a ", html.Strong("value"), "."]),
                     html.P("Inputs:"),
                     html.Ul([
-                        html.Li([html.Strong("VALUE:"), " What you’re searching for. e.g., ", html.Code(f"{df_match.loc[0, NAME_COL] if not df_match.empty else 'Some Name'}")]),
-                        html.Li([html.Strong("ARRAY:"), " Which column to search. e.g., ", html.Code("B:B")]),
-                        html.Li([html.Strong("TYPE:"), " Use ", html.Code("0"), " for exact match."])
+                        html.Li([html.Code("value"), ": What you’re searching for. e.g., ", html.Code(f"{df_match.loc[0, NAME_COL] if not df_match.empty else 'Some Name'}")]),
+                        html.Li([html.Code("array"), ": Which column to search. e.g., ", html.Code("B:B")]),
+                        html.Li([html.Code("type"), ": Use ", html.Code("0"), " for exact match."])
                     ]),
                     html.P("Output:"),
                     html.Ul([html.Li(["The position (row number). e.g., ", html.Code("1")])]),
                     html.P(
-                        "Type the value you're searching for into the 'VALUE' box below. Then, click the 'ARRAY' button and select the column you want to search.",
+                        "Type the value you're searching for into the 'value' box below. Then, click the 'array' button and select the column you want to search.",
                         className="instruction-text"
                     ),
                 # Interactive Formula
                     html.Div(className="formula-display-interactive", children=[
-                        html.Span("MATCH(", className="formula-part-red"),
+                        html.Span("match(", className="formula-part-red"),
                         dcc.Input(id='match-input-value', type='text', placeholder="VALUE", size='15', className="input-box-red"),
                         html.Span(", ", className="formula-part-red"),
                         html.Button("ARRAY", id='activate-match-array', n_clicks=0, className='dynamic-text-box dynamic-text-box-red'),
@@ -309,19 +309,19 @@ def render_content(tab):
                 # --- INDEX Section ---
                 html.Div(className="tutorial-section tutorial-section-index", children=[
                     html.H3("Understanding INDEX()"),
-                    html.P([html.Code("INDEX(ARRAY, POSITION)"), " finds the ", html.Strong("value "), "at a ", html.Strong("position"), "."]),
+                    html.P([html.Code("INDEX(array, position)"), " finds the ", html.Strong("value "), "at a ", html.Strong("position"), "."]),
                     html.P("Inputs:"),
                     html.Ul([
-                        html.Li([html.Strong("ARRAY:"), " Which column has the value you want. e.g., ", html.Code("A:A")]),
-                        html.Li([html.Strong("POSITION:"), " The row number containing the value. e.g., ", html.Code("1")])
+                        html.Li([html.Code("array"), ": Which column has the value you want. e.g., ", html.Code("A:A")]),
+                        html.Li([html.Code("position"), ": The row number containing the value. e.g., ", html.Code("1")])
                     ]),
                     html.P("Output:"),
                     html.Ul([html.Li(["The value at that position. e.g., ", html.Code(f"{df_match.loc[0, SEAT_COL] if not df_match.empty else 'Some Seat'}")])]),
                     html.P(
-                        "Click the 'ARRAY' button and select the column containing the value you want to return. Then, type the row number into the 'POSITION' box.",
+                        "Click the 'array' button and select the column containing the value you want to return. Then, type the row number into the 'position' box.",
                         className="instruction-text"
                     ),
-                    # Interactive Formula - APPLY BLUE STYLES
+                    # Interactive Formula 
                     html.Div(className="formula-display-interactive", children=[
                         # Use className for color
                         html.Span("INDEX(", className="formula-part-blue"),
@@ -348,19 +348,22 @@ def render_content(tab):
             # === INDEX/MATCH Tutorial ===
             # =======================================
             html.H2("Using INDEX() and MATCH() together"),
-            html.P(["Combine ", html.Span("INDEX", style={'color':'blue'}), " and ", html.Span("MATCH", style={'color':'red'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'blue'}), "."]),
+            html.P(["Combine ", html.Span("INDEX", style={'color':'darkblue', 'fontWeight': 'bold'}), " and ", html.Span("MATCH", style={'color':'red', 'fontWeight': 'bold'}), " to ", html.Span("look up a value from Sheet A in Sheet B", style={'color':'red'}), " and ", html.Span("return a corresponding result from the same row", style={'color':'darkblue'}), "."]),
             html.P("Instructions:", style={'fontWeight': 'bold'}),
             html.Div(className="instruction-text", children=[
-                html.P([
-                    "1. ",
-                    html.Strong(html.Span("MATCH:", style={'color': 'red'})), # Label is red and bold
-                    " Click the ", html.Span("'Lookup Value'", style={'color':'red'}), " button, then select a cell in ", html.Strong("Sheet A"), " containing the value you're searching for. ",
-                    "Click the ", html.Span("'Lookup Column'", style={'color':'red'}), " button, then select the column  in ", html.Strong("Sheet B"), " you want to search."
-                ]),
-                html.P([
-                    "2. ",
-                    html.Strong(html.Span("INDEX:", style={'color': 'darkblue'})), # Label is blue and bold
-                    " Click the ", html.Span("'Result Column'", style={'color':'darkblue'}), " button, then select the column in ", html.Strong("Sheet B"), " containing the info you want to retrieve."
+                html.Ol([
+                    html.Li([
+                        html.Strong(html.Span("MATCH:", style={'color': 'red'})),
+                        " Click the ", html.Span("'Lookup Value'", style={'color': 'red'}), " button, then select a cell in ",
+                        html.Strong("Sheet A"), " containing the value you're searching for. ",
+                        "Click the ", html.Span("'Lookup Column'", style={'color': 'red'}), " button, then select the column in ",
+                        html.Strong("Sheet B"), " you want to search."
+                    ]),
+                    html.Li([
+                        html.Strong(html.Span("INDEX:", style={'color': 'darkblue'})),
+                        " Click the ", html.Span("'Result Column'", style={'color': 'darkblue'}), " button, then select the column in ",
+                        html.Strong("Sheet B"), " containing the info you want to retrieve."
+                    ])
                 ])
             ]),
             # --- Formula Display ---
@@ -426,86 +429,67 @@ def render_content(tab):
     elif tab == 'tab-text-strings':
         return html.Div([
             html.H2("Text String Basics"),
-            html.P("Learn how to manipulate text using common Excel functions."),
-
-            # --- Explanations (Example for LEFT) ---
+            html.P("These core text functions help you extract, reshape, and combine strings in Excel. Click on a function to learn how it works and see real examples."),
+            # --- Explanations ---
             html.Div(className="explanation-section", children=[
-                 html.H4("Function Explanations"),
-                 html.Details([
-                     html.Summary("LEFT(text, num_chars)"),
-                     html.P("Returns the specified number of characters from the start of a text string."),
-                     html.Ul([
-                         html.Li([html.Strong("text:"), " The text string containing the characters you want to extract."]),
-                         html.Li([html.Strong("num_chars:"), " The number of characters you want LEFT to extract."]),
+                html.Details([
+                    html.Summary([html.Code("LEFT(text, num_chars)")," and ",html.Code("RIGHT(text, num_chars)")]),
+                    html.P("Return a specified number of characters from the start (LEFT) or end (RIGHT) of a text string."),
+                    html.Ul([
+                        html.Li([html.Code("text"), ": The original text string."]),
+                        html.Li([html.Code("num_chars"), ": The number of characters you want to extract."]),
+                    ]),
+                    html.P(["Example: ",html.Code("LEFT(\"Robert\", 3)")," returns \"Rob\" and ", html.Code("RIGHT(\"Robert\", 3)")," returns \"ert\""])
+                ]),
+                html.Details([
+                    html.Summary(html.Code("MID(text, start_num, num_chars)")),
+                    html.P("Returns a specific number of characters from a text string, starting at the position you specify."),
+                    html.Ul([
+                        html.Li([html.Code("text"), ": The original text string"]),
+                        html.Li([html.Code("start_num"), ": The position of the first character you want to extract (1 is the first character)."]),
+                        html.Li([html.Code("num_chars"), ": The number of characters you want to return."]),
                      ]),
-                     html.P(html.Em("Example: LEFT(\"Apple\", 3) returns \"App\""))
-                 ]),
-                 # Add Details sections for RIGHT, MID, SUBSTITUTE, TEXTBEFORE, TEXTAFTER, &
-                  html.Details([
-                     html.Summary("RIGHT(text, num_chars)"),
-                     html.P("Returns the specified number of characters from the end of a text string."),
-                     html.Ul([
-                         html.Li([html.Strong("text:"), " The text string containing the characters you want to extract."]),
-                         html.Li([html.Strong("num_chars:"), " The number of characters you want RIGHT to extract."]),
-                     ]),
-                     html.P(html.Em("Example: RIGHT(\"Apple\", 2) returns \"le\""))
-                 ]),
-                  html.Details([
-                     html.Summary("MID(text, start_num, num_chars)"),
-                     html.P("Returns a specific number of characters from a text string, starting at the position you specify."),
-                      html.Ul([
-                         html.Li([html.Strong("text:"), " The text string containing the characters you want to extract."]),
-                         html.Li([html.Strong("start_num:"), " The position of the first character you want to extract (1 is the first character)."]),
-                         html.Li([html.Strong("num_chars:"), " The number of characters you want MID to return."]),
-                     ]),
-                     html.P(html.Em("Example: MID(\"Apple Pie\", 7, 3) returns \"Pie\""))
-                 ]),
-                  html.Details([
-                     html.Summary("SUBSTITUTE(text, old_text, new_text)"),
-                     html.P("Replaces existing text with new text in a text string."),
-                      html.Ul([
-                         html.Li([html.Strong("text:"), " The text string containing the text you want to substitute."]),
-                         html.Li([html.Strong("old_text:"), " The text you want to replace."]),
-                         html.Li([html.Strong("new_text:"), " The text you want to replace old_text with."]),
-                     ]),
-                     html.P(html.Em("Example: SUBSTITUTE(\"Big Box\", \"Big\", \"Small\") returns \"Small Box\""))
+                     html.P(["Example: ",html.Code("MID(\"Robert\", 2, 4)")," returns \"ober\""])
+                ]),
+                html.Details([
+                    html.Summary(html.Code("SUBSTITUTE(text, old_text, new_text)")),
+                    html.P("Replaces existing text with new text in a text string."),
+                    html.Ul([
+                        html.Li([html.Code("text"), ": The original text string."]),
+                        html.Li([html.Code("old_text"), ": The text you want to replace."]),
+                        html.Li([html.Code("new_text"), ": The text you want to replace OLD_TEXT with."]),
+                    ]),
+                    html.P(["Example: ",html.Code("SUBSTITUTE(\"Robert\", \"ert\", \"bie\")")," returns \"Robbie\""])
                  ]),
                  html.Details([
-                     html.Summary("TEXTBEFORE(text, delimiter)"),
-                     html.P("Returns text that occurs before a given character or string (delimiter). Basic version."),
-                      html.Ul([
-                         html.Li([html.Strong("text:"), " The text you want to search within."]),
-                         html.Li([html.Strong("delimiter:"), " The text that marks the point before which you want to extract."]),
-                     ]),
-                     html.P(html.Em("Example: TEXTBEFORE(\"Red-Blue\", \"-\") returns \"Red\""))
-                 ]),
-                  html.Details([
-                     html.Summary("TEXTAFTER(text, delimiter)"),
-                     html.P("Returns text that occurs after a given character or string (delimiter). Basic version."),
-                      html.Ul([
-                         html.Li([html.Strong("text:"), " The text you want to search within."]),
-                         html.Li([html.Strong("delimiter:"), " The text that marks the point after which you want to extract."]),
-                     ]),
-                     html.P(html.Em("Example: TEXTAFTER(\"Red-Blue\", \"-\") returns \"Blue\""))
-                 ]),
-                 html.Details([
-                     html.Summary("& (Ampersand / Concatenate)"),
-                     html.P("Joins several text strings into one text string."),
-                     html.P(html.Em("Example: \"Hello\" & \" \" & \"World\" returns \"Hello World\""))
-                 ]),
-                 html.Details([
-                     html.Summary("\"\" (Literal Text)"),
-                     html.P("Used to include literal text strings within formulas, often combined with &. The text must be enclosed in double quotes."),
-                     html.P(html.Em("Example: \"Rep. \" & A2 & \" (\" & B2 & \")\""))
-                 ]),
+                    html.Summary([html.Code("TEXTBEFORE(text, delimiter)")," and ", html.Code("TEXTAFTER(text, delimiter)")]),
+                    html.P("Return text that occurs before (TEXTBEFORE) or after (TEXTAFTER) a given character or string (delimiter)."),
+                    html.Ul([
+                        html.Li([html.Code("text"), ": The original text string."]),
+                        html.Li([html.Code("delimeter"), ": The point before/after which you want to extract."]),
+                        html.Li([html.Code("instance"), ": You can provide a third optional argument indicating which occurrence of the delimeter to use."])
+                    ]),
+                    html.P(["Example: ",html.Code("TEXTBEFORE(\"National Journal\", \" \")")," returns \"National\" and ",html.Code("TEXTAFTER(\"National Journal\", \" \")", " returns \"Journal\"")])
+                ]),
+                html.Details([
+                    html.Summary([html.Code("&")]),
+                    html.P("Joins several text strings into one text string."),
+                    html.P(["Example: ", html.Code("\"National\" & \" \" & \"Journal\"")," returns \"National Journal\""])
+                ])
             ]), # End Explanations Div
 
             # --- Interactive Section ---
             html.Div(className="interactive-text-section", children=[
-                html.H3("Build Your Formula"),
-                html.P("Goal: Combine data from the table below to create names in the format 'Rep./Sen. FirstName LastName (Party-State[-District])'."),
-                html.P(html.Em("Example: Rep. Nick Begich (R-AK-AL) or Sen. Dan Sullivan (R-AK)")),
-
+                html.H3(["Create your own formula!"]),
+                html.Div(className="instruction-text", children=[
+                    html.Ul([
+                        html.Li(["Click a function button to add it to the ", html.Strong("Current Formula")," below. Then, fill out its arguments to see the ",html.Strong("result"),"."]),
+                        html.Li(["Use the ", html.Strong("\"\""), " button to add a text string."]),
+                        html.Li(["Use the ", html.Strong("[cell]"), " button to add text directy from a cell in the table."])
+                    ])
+                ]),
+                html.P(["Try to create names in the format: ", html.Code("Rep. Nick Begich (R-AK-AL)")]),
+                
                 # --- Formula Builder Buttons ---
                 html.Div(className="formula-buttons", children=[
                     html.Button("LEFT", id={'type': 'add-formula-btn', 'index': 'LEFT'}, n_clicks=0),
@@ -528,9 +512,9 @@ def render_content(tab):
                 # --- Output Display Area ---
                 html.H4("Result:", style={'marginTop': '15px'}),
                 html.Div(id=TEXT_OUTPUT_DISPLAY_ID, className='result-box', style={'minHeight': '30px', 'border': '1px solid #eee', 'padding': '5px', 'backgroundColor': '#f8f8f8'}),
+                html.Br(),
 
                 # --- Data Table ---
-                html.H4("Sample Text Data", style={'marginTop': '20px'}),
                 dash_table.DataTable(
                     id=TEXT_TABLE_ID,
                     columns=columns_text,
@@ -997,9 +981,6 @@ def style_selected_im_b_columns(index_param_data, match_param_2_data):
     styles = []
     index_col_idx = index_param_data.get('col_index') if index_param_data else None
     match_col_idx = match_param_2_data.get('col_index') if match_param_2_data else None
-
-    print(f"Styling IM B: IndexCol={index_col_idx}, MatchCol={match_col_idx}")
-
     # Helper to add style if index is valid
     def add_style(col_idx, color):
         if col_idx is not None and original_b_cols_list and 0 <= col_idx < len(original_b_cols_list):
@@ -1019,7 +1000,6 @@ def style_selected_im_b_columns(index_param_data, match_param_2_data):
     # Apply RED for MATCH column SECOND (will override blue if same column)
     add_style(match_col_idx, HIGHLIGHT_COLOR_RED)
 
-    print(f"-> Final B Styles: {styles}")
     return styles
 
 
@@ -1107,7 +1087,6 @@ def update_formula_structure(add_btns_clicks, clear_btn_clicks, delete_btn_click
                 input_id = {'type': 'text-literal-input', 'index': component_id}
                 new_component = {'id': component_id, 'type': 'literal_string', 'input_id': input_id, 'value': ""}
             elif component_type == 'CELL':
-                # Unique ID for this specific cell button instance
                 button_id = {'type': 'text-cell-btn', 'index': f'{component_id}-cell'}
                 new_component = {'id': component_id, 'type': 'cell_value', 'ref': None, 'value': None, 'button_id': button_id}
         elif component_type in ['LEFT', 'RIGHT', 'MID', 'SUBSTITUTE', 'TEXTBEFORE', 'TEXTAFTER']:
@@ -1132,7 +1111,7 @@ def update_formula_structure(add_btns_clicks, clear_btn_clicks, delete_btn_click
                     'param_ids': param_ids_structure[component_type]
                 }
 
-        # --- Component Handling Logic (remains the same) ---
+        # --- Component Handling Logic ---
         if new_component:
             current_formula.append(new_component)
             return current_formula, dash.no_update # Let calculation run
@@ -1174,7 +1153,7 @@ def render_formula_display(formula_data, selection_mode):
             display_elements.append(html.Span('"', style=STYLE_FORMULA_COMPONENT))
         elif comp_type == 'cell_value':
              button_id = component['button_id']
-             button_text = "Select Cell"
+             button_text = "Click to select cell"
              if isinstance(component.get('ref'), str): button_text = component['ref']
              is_active_button = (active_component_id == comp_id and active_param_index == 'cell')
              button_class = 'dynamic-text-box' + (' active' if is_active_button else '')
@@ -1186,9 +1165,9 @@ def render_formula_display(formula_data, selection_mode):
         elif comp_type == 'function':
             func_name = component['name']
             # --- START DEBUG PRINTS ---
-            print(f"--- Processing Function Component ---")
-            print(f"DEBUG: func_name = {repr(func_name)}") # Use repr for clarity
-            print(f"DEBUG: func_name type = {type(func_name)}")
+            # print(f"--- Processing Function Component ---")
+            # print(f"DEBUG: func_name = {repr(func_name)}") 
+            # print(f"DEBUG: func_name type = {type(func_name)}")
             # --- END DEBUG PRINTS ---
             params = component['params']
             param_ids = component['param_ids']
@@ -1202,8 +1181,8 @@ def render_formula_display(formula_data, selection_mode):
                  'TEXTAFTER':  [('cell', 'text'), ('text', 'delimiter')],
             }
             # --- START DEBUG PRINTS ---
-            print(f"DEBUG: param_render_map = {repr(param_render_map)}") # Use repr
-            print(f"DEBUG: param_render_map type = {type(param_render_map)}")
+            # print(f"DEBUG: param_render_map = {repr(param_render_map)}")
+            # print(f"DEBUG: param_render_map type = {type(param_render_map)}")
             # --- END DEBUG PRINTS ---
             render_info = param_render_map.get(func_name, [])
 
@@ -1213,7 +1192,7 @@ def render_formula_display(formula_data, selection_mode):
                 param_type, placeholder = render_info[p_idx] if p_idx < len(render_info) else ('unknown', '??')
 
                 if param_type == 'cell':
-                    button_text = "Select Cell"
+                    button_text = "Click to select cell"
                     cell_info = param_val
                     if isinstance(cell_info, dict) and 'ref' in cell_info and cell_info['ref'] is not None:
                          button_text = cell_info['ref']
@@ -1232,14 +1211,12 @@ def render_formula_display(formula_data, selection_mode):
                         id=param_id, type='number', placeholder=placeholder, value=param_val,
                         min=0 if func_name in ['LEFT', 'RIGHT', 'MID'] and p_idx > 0 else None,
                         step=1, size='5',
-                        # debounce=True, # <-- REMOVE/COMMENT OUT
                         style=STYLE_FORMULA_COMPONENT
                     ))
                 elif param_type == 'text':
                      display_elements.append(dcc.Input(
                         id=param_id, type='text', placeholder=placeholder, value=param_val,
                         size='10',
-                        # debounce=True, # <-- REMOVE/COMMENT OUT
                         style=STYLE_FORMULA_COMPONENT
                     ))
 
@@ -1319,7 +1296,7 @@ def handle_text_cell_selection(active_cell, selection_mode, formula_data, table_
 
 
     if not active_cell or active_comp_id is None or active_param_idx is None:
-        print("Skipping cell update (no active cell or mode)")
+        # print("Skipping cell update (no active cell or mode)")
         # If user clicks outside table while mode is active, deactivate mode
         if active_comp_id is not None:
              print("Deactivating cell selection mode (clicked outside).")
@@ -1421,10 +1398,8 @@ def handle_text_input_change(num_values, text_values, literal_values, formula_da
                          print(f"Updated Literal Component {component_id} value to {triggered_value}")
                     break
         elif triggered_type in ['text-num-input', 'text-text-input']:
-             # --- START FIX: Use rsplit for correct parsing ---
              component_id, param_index_str = triggered_index_str.rsplit('-', 1)
              param_index = int(param_index_str)
-             # --- END FIX ---
 
              for component in formula_data:
                  if component['id'] == component_id and component['type'] == 'function':
@@ -1485,7 +1460,6 @@ def calculate_text_formula_result(formula_data):
 
         if error_occurred: continue # Stop calculation on first error
 
-        # --- Operator Check (no change needed here, checks i==0 and &&) ---
         if comp_type == 'operator':
             if i == 0 or formula_data[i-1]['type'] == 'operator':
                 error_occurred = True
@@ -1534,7 +1508,7 @@ def calculate_text_formula_result(formula_data):
                 # Function is complete, try to evaluate
                 processed_params = []
                 param_error = False
-                # ... (param processing logic - unchanged) ...
+                # ... (param processing logic) ...
                 for p_idx, p_val in enumerate(params):
                     if isinstance(p_val, dict) and 'value' in p_val: processed_params.append(p_val['value'])
                     elif p_val is not None: processed_params.append(p_val)
@@ -1546,7 +1520,7 @@ def calculate_text_formula_result(formula_data):
 
                 try:
                     result_value = ""
-                    # ... (call helper functions - unchanged) ...
+                    # ... (call helper functions) ...
                     if func_name == 'LEFT': result_value = excel_left(*processed_params)
                     elif func_name == 'RIGHT': result_value = excel_right(*processed_params)
                     elif func_name == 'MID': result_value = excel_mid(*processed_params)
