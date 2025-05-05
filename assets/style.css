@@ -173,7 +173,7 @@ hr.section-separator {
     color: #555;
     margin-bottom: 15px;
     font-size: .9em;
-    padding: 5px;
+    padding: 3px;
     background-color: #efefef; /* Light grey background for instructions */
     border-left: 3px solid #aaa; /* Add a left border */
 }
