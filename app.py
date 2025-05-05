@@ -322,7 +322,7 @@ def render_content(tab):
                     html.P("Output:"),
                     html.Ul([html.Li(["The position (row number). e.g., ", html.Code("1")])]),
                     html.P(
-                        "Type the value you're searching for into the 'value' box below. Then, click the 'array' button and select the column you want to search.",
+                        "Type the value you're searching for into the 'VALUE' box below. Then, click the 'ARRAY' button and select the column you want to search.",
                         className="instruction-text"
                     ),
                 # Interactive Formula
@@ -356,7 +356,7 @@ def render_content(tab):
                     html.P("Output:"),
                     html.Ul([html.Li(["The value at that position. e.g., ", html.Code(f"{df_match.loc[0, SEAT_COL] if not df_match.empty else 'Some Seat'}")])]),
                     html.P(
-                        "Click the 'array' button and select the column containing the value you want to return. Then, type the row number into the 'position' box.",
+                        "Click the 'ARRAY' button and select the column containing the value you want to return. Then, type the row number into the 'POSITION' box.",
                         className="instruction-text"
                     ),
                     # Interactive Formula 
@@ -494,7 +494,7 @@ def render_content(tab):
                          html.Li([html.Code("value_if_true2, ..."), ": (Optional) Results if subsequent conditions are TRUE."]),
                          html.Li(["You can create a default 'catch-all' result for all inputs that don't meet any of the previous conditions by making the final ", html.Code("logical_test"), " simply ", html.Code("TRUE")]),
                      ]),
-                     html.P(["Example: ", html.Code("IFS(A1>10, \"Strong Dem\", A1>5, \"Lean Dem\", TRUE, \"Likely Dem\")"), " checks A1. If it's >10, it returns \"Strong Dem\". If not, it checks if A1>5 and returns \"Lean Dem\" if TRUE. Otherwise, it returns \"Likely Dem\"."])
+                     html.P(["Example: ", html.Code("IFS(A1>10, \"Strong Dem\", A1<5, \"Lean Dem\", TRUE, \"Likely Dem\")"), " checks A1. If it's >10, it returns \"Strong Dem\". If not, it checks if A1>5 and returns \"Lean Dem\" if TRUE. Otherwise, it returns \"Likely Dem\"."])
                  ]),
              ]), # End Explanations
 
@@ -508,7 +508,7 @@ def render_content(tab):
                     html.H3("Understanding IF()"),
 
                     html.Div(className="instruction-text", children=[
-                        "Complete the ", html.Code("IF()"), " formula to give House members the prefix ", html.Em("Rep.")," and Senate members the prefix ", html.Em("Sen."), 
+                        "Complete the ", html.Code("IF()"), " formula to give House members the prefix ", html.Em("\"Rep.\"")," and Senate members the prefix ", html.Em("\"Sen.\""), 
                         html.Strong(" Use row 1 of the table below.")
                     ]),
                     # Interactive IF Formula Display
@@ -546,9 +546,9 @@ def render_content(tab):
                 html.Div(className="exercise-section exercise-column", children=[ # Added exercise-column class
                     html.H3("Understanding IFS()"),
                     html.Div(className="instruction-text", children =[
-                        "Complete the ", html.Code("IFS()")," formula to return ", html.Em("red", style={'color': 'red'})," for Republicans, ", 
-                        html.Em("blue", style={'color': 'darkblue'})," for Democrats, and ", 
-                        html.Em("yellow", style={'color': '#8B8000'})," for Independents. ", html.Strong("Use row 1 of the table below.")
+                        "Complete the ", html.Code("IFS()")," formula to return ", html.Em("\"red\"", style={'color': 'red'})," for Republicans, ", 
+                        html.Em("\"blue\"", style={'color': 'darkblue'})," for Democrats, and ", 
+                        html.Em("\"yellow\"", style={'color': '#8B8000'})," for Independents. ", html.Strong("Use row 1 of the table below.")
                     ]),
                     # Interactive IFS Formula Display
                      html.Div(id='ifs-formula-display-container', children=[
