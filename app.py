@@ -494,7 +494,7 @@ def render_content(tab):
                          html.Li([html.Code("value_if_true2, ..."), ": (Optional) Results if subsequent conditions are TRUE."]),
                          html.Li(["You can create a default 'catch-all' result for all inputs that don't meet any of the previous conditions by making the final ", html.Code("logical_test"), " simply ", html.Code("TRUE")]),
                      ]),
-                     html.P(["Example: ", html.Code("IFS(A1>10, \"Strong Dem\", A1<5, \"Lean Dem\", TRUE, \"Likely Dem\")"), " checks A1. If it's >10, it returns \"Strong Dem\". If not, it checks if A1>5 and returns \"Lean Dem\" if TRUE. Otherwise, it returns \"Likely Dem\"."])
+                     html.P(["Example: ", html.Code("IFS(A1>10, \"Strong Dem\", A1>5, \"Likely Dem\", TRUE, \"Lean Dem\")"), " checks A1. If it's >10, it returns \"Strong Dem\". If not, it checks if A1>5 and returns \"Lean Dem\" if TRUE. Otherwise, it returns \"Likely Dem\"."])
                  ]),
              ]), # End Explanations
 
