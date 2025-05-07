@@ -8,10 +8,11 @@ import uuid
 import math
 
 # --- Constants ---
-SHEET_A_CSV = "sheetA.csv"
-SHEET_B_CSV = "sheetB.csv"
-MATCH_CSV = "match.csv"
-TEXT_CSV = "text.csv"  
+SHEET_A_CSV = "data/sheetA.csv"
+SHEET_B_CSV = "data/sheetB.csv"
+MATCH_CSV = "data/match.csv"
+TEXT_CSV = "data/text.csv"  
+CONDITIONAL_CSV = "data/conditional.csv"
 BIOGUIDE_COL = 'bioguide'
 SEAT_COL = "seat"
 NAME_COL = "name"
@@ -22,7 +23,6 @@ TEXT_FORMULA_STORE_ID = 'text-formula-store'
 TEXT_SELECTION_STORE_ID = 'text-selection-mode-store'
 TEXT_FORMULA_DISPLAY_ID = 'text-formula-display'
 TEXT_OUTPUT_DISPLAY_ID = 'text-output-display'
-CONDITIONAL_CSV = "conditional.csv"
 CONDITIONAL_TABLE_ID = 'conditional-table'
 
 # Parameter Store IDs
@@ -505,7 +505,7 @@ def render_content(tab):
 
                 # --- IF Exercise ---
                 html.Div(className="exercise-section exercise-column", children=[ # Added exercise-column class
-                    html.H3("Understanding IF()"),
+                    html.H3("IF()"),
 
                     html.Div(className="instruction-text", children=[
                         "Complete the ", html.Code("IF()"), " formula to give House members the prefix ", html.Em("\"Rep.\"")," and Senate members the prefix ", html.Em("\"Sen.\""), 
@@ -544,7 +544,7 @@ def render_content(tab):
 
                 # --- IFS Exercise ---
                 html.Div(className="exercise-section exercise-column", children=[ # Added exercise-column class
-                    html.H3("Understanding IFS()"),
+                    html.H3("IFS()"),
                     html.Div(className="instruction-text", children =[
                         "Complete the ", html.Code("IFS()")," formula to return ", html.Em("\"red\"", style={'color': 'red'})," for Republicans, ", 
                         html.Em("\"blue\"", style={'color': 'darkblue'})," for Democrats, and ", 
